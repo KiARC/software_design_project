@@ -18,6 +18,9 @@ from numpy import sin, cos, tan, pi, arccos, arctan, arcsin, arctan2, sqrt
 import argparse
 import os.path
 import matplotlib.pyplot as plt
+import PIL.Image
+import PIL.ExifTags
+import xml.etree.ElementTree as ET
 
 
 def get_sun_pos(day, hour, min, sec, lat, long):
@@ -62,9 +65,20 @@ def sphere2xy(a, z):
 
 
 def extract_exif(file):
-    o = subprocess.check_output(["exiftool", "-G", "-a", "-all:all", "-c", "%f", file]).decode()
-    o = [r.split(":", 1) for r in o.split("\n") if ":" in r]
-    return {r[0].split("]", 1)[1].strip(): r[1].strip() for r in o}
+    img = PIL.Image.open(file)
+    exif = {
+        PIL.ExifTags.TAGS[k]: v
+        for k, v in img.getexif().items()
+        if k in PIL.ExifTags.TAGS
+    }
+    for n, v in img.applist:
+        if v.startswith(b"http://ns.adobe.com/xap/1.0/"):
+            xmp = ET.fromstring(v.split(b"\x00", 1)[1].decode())[0][0].items()
+            for xk, xv in xmp:
+                exif[xk.rsplit("}", 1)[1]] = xv
+    for xk, xv in exif.items():
+        print(xk.ljust(50), xv)
+    return exif
 
 
 def rot(angle):
@@ -206,11 +220,11 @@ if __name__ == "__main__":
 
     exif = extract_exif(args.file)
     param = {
-        "fullHeight": int(exif["Full Pano Height Pixels"]),
-        "fullWidth": int(exif["Full Pano Width Pixels"]),
-        "ystart": int(exif["Cropped Area Top Pixels"]),
-        "xstart": int(exif["Cropped Area Left Pixels"]),
-        "heading": float(exif["Pose Heading Degrees"]),
+        "fullHeight": int(exif["FullPanoHeightPixels"]),
+        "fullWidth": int(exif["FullPanoWidthPixels"]),
+        "ystart": int(exif["CroppedAreaTopPixels"]),
+        "xstart": int(exif["CroppedAreaLeftPixels"]),
+        "heading": float(exif["PoseHeadingDegrees"]),
         "xoffs": 0,
         "yoffs": 0
     }
@@ -279,6 +293,7 @@ if __name__ == "__main__":
     if os.path.exists("/tmp/mask{}.png".format(os.path.basename(args.file))):
         mask = cv2.imread("/tmp/mask{}.png".format(os.path.basename(args.file)))[:, :, 0]
     else:
+        cv2.namedWindow("Panorama", cv2.WINDOW_NORMAL)
         cv2.imshow("Panorama", img)
         cv2.setMouseCallback("Panorama", clicked2)
         cv2.waitKey(0)
@@ -324,6 +339,8 @@ if __name__ == "__main__":
         print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
         r = r[0]
         diff = numpy.uint8(100*abs(img_color @ r - 1))
+        cv2.destroyAllWindows()
+        cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
         cv2.imshow("diff", diff)
         dil = cv2.dilate(diff, numpy.ones((100, 100)))
         thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
@@ -353,6 +370,7 @@ if __name__ == "__main__":
         print("Picture taken at", d, "offset", offs)
         target = get_sun_pos(d.tm_yday, d.tm_hour - offs, d.tm_min, d.tm_sec, lat, long)
         cv2.destroyAllWindows()
+        cv2.namedWindow("Select position of sun", cv2.WINDOW_NORMAL)
         cv2.imshow("Select position of sun", img)
         cv2.setMouseCallback("Select position of sun", sun_callback)
         cv2.waitKey(0)
@@ -613,6 +631,6 @@ if __name__ == "__main__":
 
     cv2.destroyAllWindows()
     cv2.imwrite("/tmp/final.jpg", img)
-    subprocess.call(["exiftool", "-TagsFromFile", sys.argv[1], '"-all:all>all:all"', "/tmp/final.jpg"])
+    cv2.namedWindow("Processing", cv2.WINDOW_NORMAL)
     cv2.imshow("Processing", img)
     cv2.waitKey(0)
