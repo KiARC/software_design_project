@@ -3,7 +3,7 @@ name = "software-design-project"
 version = "0.0.1"
 description = ""
 authors = ["KiARC <kiarc@kiarc.win>"]
-license = "GPL3-only"
+license = "GPLv3-only"
 readme = "README.md"
 package-mode = false
 
