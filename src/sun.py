@@ -1,12 +1,3 @@
-"""
-Compute the best angle for a solar panel based on an image of the surroundings
-
-Usage: sun.py file latitude longitude
-    where:
-        file is a spherical image
-        latitude is the latitude in degrees
-        longitude is the longitude in degrees
-"""
 import datetime
 import time
 import subprocess
@@ -86,8 +77,12 @@ def rot(angle):
 
 
 def get_azel(coords):
+    """
+    Given a point [x, y, z], return the azimuth angle, the zenith angle, and the magnitude. The y-axis points north
+    and the x-axis points east. Azimuth angles are measured clockwise from north
+    """
     x, y, z = coords
-    return numpy.arctan2(-y, x)%(2*pi), numpy.arctan2(numpy.linalg.norm([y, x]), z), numpy.linalg.norm([x, y, z])
+    return numpy.arctan2(x, y)%(2*pi), numpy.arctan2(numpy.linalg.norm([y, x]), z), numpy.linalg.norm([x, y, z])
 
 
 def other_angle(R1, R2, a, b):
@@ -140,7 +135,12 @@ def get_best_position(points, R1, R2, a=None, b=None):
         pass
     else:
         if abs(arcsin(s[2])) <= rng:
+            # It is possible for the solar panel to point directly at the optimal position
+            # (rot(b) @ R1 @ rot(a) @ [1,0,0])[2] = s[2]
+            # (R1 @ [cos(a), sin(a), 0])[2] = s[2]
+            # cos(a)*R1[2, 0] + sin(a)*R1[2, 1] = s[2]
             aopt = a or arcsin(s[2]/numpy.linalg.norm(R1[2,:2])) - arctan(R1[2,0]/R1[2,1])
+            print(cos(aopt)*R1[2, 0] + sin(aopt)*R1[2, 1], s[2])
         else:
             # We need to find a value of a that maximizes the z-component R1 @ rot(a) @ [1, 0, 0]
             #   R1 @ [cos(a), sin(a), 0]
@@ -149,28 +149,9 @@ def get_best_position(points, R1, R2, a=None, b=None):
             aopt = arctan2(R1[2,1], R1[2,0])
             aopt += (-1 if aopt > 0 else 1)*(pi if s[2] < 0 else 0)
         pred = R1 @ rot(aopt) @ numpy.array([1, 0, 0])
+        print(pred, s)
         bopt = arctan2(s[1], s[0]) - arctan2(pred[1], pred[0])
     return aopt, bopt, numpy.dot(rot(bopt) @ R1 @ rot(aopt) @ [1,0,0], s) * numpy.linalg.norm(ps)
-
-    if R1[2, 2] != 0:
-        print("Warning: chosen axes of rotation do not cover the entire sphere!")
-
-    def compute_power(x0):
-        av, bv = x0
-        svec = R2 @ rot(bv) @ R1 @ rot(av) @ numpy.array([1, 0, 0])
-        return -(svec @ points.transpose()).sum()
-    """if a is None and b is None:
-        res = scipy.optimize.minimize(compute_power, numpy.array([0, 0]))
-        a, b = res["x"]
-    elif a is not None and b is None:
-        res = scipy.optimize.minimize(lambda x0: compute_power((a, x0[0])), numpy.array([0]))
-        b = res["x"][0]
-    elif a is None and b is not None:
-        res = scipy.optimize.minimize(lambda x0: compute_power((x0[0], b)), numpy.array([0]))
-        a = res["x"][0]
-    else:
-        return a, b, -compute_power((a, b))
-    return a%(2*pi), b%(2*pi), -res["fun"]"""
 
 
 def get_best_btrack(points, R1, R2, a=None):
@@ -211,11 +192,20 @@ def print_power(p):
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
     parse.add_argument("file")
-    parse.add_argument("-a", "--latitude")
-    parse.add_argument("-o", "--longitude")
-    parse.add_argument("-A", "--azimuth", default=None)
-    parse.add_argument("-Z", "--zenith", default=None)
-    parse.add_argument("--coord", default=None)
+    parse.add_argument("-a", "--latitude", help="Latitude in degrees")
+    parse.add_argument("-o", "--longitude", help="Longitude in degrees")
+    parse.add_argument("-A", "--azimuth", default=None,
+                       help="Azimuth angle of the panel. If not specified, the optimal angle is computed. Specify "
+                       "'track' for a panel that tracks along this axis.")
+    parse.add_argument("-Z", "--zenith", default=None,
+                       help="Zenith angle of the panel. If not specified, the optimal angle is computed. Specify "
+                       "'track' for a panel that tracks along this axis.")
+    parse.add_argument("--coord", default=None,
+                       help="Rotation matrices that specify the coordinate system. If not specified, azimuth and "
+                            "zenith angles are used. Use this setting when working with panels that track along a "
+                            "different axis or set of axes.")
+    parse.add_argument("--groups", default=2, help="Number of groups to use for best-groups analysis")
+    parse.add_argument("--dt", default=15, help="Time increment for checking sun position, in minutes")
     args = parse.parse_args()
 
     exif = extract_exif(args.file)
@@ -242,7 +232,7 @@ if __name__ == "__main__":
         lat = float(args.latitude)
         long = float(args.longitude)
 
-    dt = 15                                     # Time between sample points in minutes
+    dt = args.dt                                # Time between sample points in minutes
     p_len = 24*60//dt                           # Number of sample points per day
     positions = numpy.zeros((365*p_len, 7))
     valid = []
@@ -253,26 +243,8 @@ if __name__ == "__main__":
     height, width = img.shape[:2]
 
     mask = numpy.zeros((height+2, width+2), dtype=numpy.uint8)
-
-    # Apply Sobel filter to grayscale image
-    sobel_x = cv2.convertScaleAbs(cv2.Sobel(img, cv2.CV_16S, 1, 0, ksize=3))
-    sobel_y = cv2.convertScaleAbs(cv2.Sobel(img, cv2.CV_16S, 0, 1, ksize=3))
-    sobel = cv2.addWeighted(sobel_x, 0.5, sobel_y, 0.5, 1)
-    sobel = cv2.threshold(cv2.dilate(sobel, numpy.ones((25, 25))), 25, 255, cv2.THRESH_BINARY)[1]
-
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-
-    def clicked(event, x, y, flags, param):
-        global mask, sobel, img, positions, width, height
-        if event == cv2.EVENT_LBUTTONDOWN and not sobel[y, x, 0]:
-            cv2.floodFill(sobel, mask, (x, y), 255)
-            t_mask = numpy.zeros(mask.shape+(3,), dtype=numpy.uint8)
-            t_mask[:, :, 2] = mask*255
-            img_c = cv2.addWeighted(img, 0.7, t_mask[1:-1, 1:-1], 0.3, 1)
-            cv2.destroyAllWindows()
-            cv2.imshow("Panorama", cv2.vconcat([img_c, sobel]))
-            cv2.setMouseCallback("Panorama", clicked)
 
     selected_points = []
     img_temp = img.copy()
@@ -301,6 +273,8 @@ if __name__ == "__main__":
         xmin, xmax = numpy.min(pts[:, 0]), numpy.max(pts[:, 0])
         ymin, ymax = numpy.min(pts[:, 1]), numpy.max(pts[:, 1])
         colors = []
+        # Sample 1000 random points and check each one if it is inside the shape the user selected.
+        # If it is, store it for processing
         for i in range(1000):
             xi = numpy.random.randint(xmin, xmax)
             yi = numpy.random.randint(ymin, ymax)
@@ -329,9 +303,6 @@ if __name__ == "__main__":
                             bottom += 1
             if inside or (top%2 and bottom%2):
                 colors.append(img_color[yi, xi])
-                #cv2.circle(img_temp, (xi, yi), 20, (0, 0, 255), -1)
-        #cv2.imshow("final image", img_temp)
-        #cv2.waitKey()
         colors = numpy.array(colors, dtype=float)
         print(colors.T @ colors)
         r = numpy.linalg.lstsq(colors, numpy.ones(len(colors)))
@@ -346,7 +317,6 @@ if __name__ == "__main__":
         thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
         cv2.floodFill(thr, None, pts[0], 128)
         mask[1:-1, 1:-1] = numpy.where(thr == 128, 255, 0)
-        #cv2.imshow("threshold", thr)
         cv2.waitKey(0)
         cv2.imwrite("/tmp/mask{}.png".format(os.path.basename(args.file)), mask)
 
@@ -361,7 +331,8 @@ if __name__ == "__main__":
             cv2.imshow("Select position of sun", img_temp)
             cv2.setMouseCallback("Select position of sun", sun_callback)
 
-    # Draw a circle to represent the expected position of the sun
+    # If complete time information is included, allow thw user to select the position of the
+    # sun to calibrate the compass data included in the image.
     offs = 0
     if "Date/Time Original" in exif and "Offset Time" in exif:
         d = datetime.datetime.strptime(exif["Date/Time Original"][:19], "%Y:%m:%d %H:%M:%S").timetuple()
@@ -380,9 +351,6 @@ if __name__ == "__main__":
             param["xoffs"] = sun_pos[0] - target[0]
             param["yoffs"] = sun_pos[1] - target[1]
         #cv2.circle(img, sphere2xy(*target), 200, (0, 255, 255), 30)
-
-    # area = find_area(sobel, (width//2, height//2))
-    # cv2.line(img, (width//2, 0), (width//2, height), (0, 0, 255), 10)
 
     # Draw the grid
     for i in range(0, 360, 10):
@@ -406,6 +374,7 @@ if __name__ == "__main__":
     # Draw the horizon
     cv2.line(img, (0, param["fullHeight"]//2 - param["ystart"]), (width, param["fullHeight"]//2 - param["ystart"]), (0, 0, 255), 5)
 
+    # Compute sun position for every time interval
     I_ss = 0
     I_cs = 0
     I_c = 0
@@ -424,7 +393,6 @@ if __name__ == "__main__":
             positions[i+d*p_len, 3] = i
             positions[i+d*p_len, 4:] = 0
             time_values.append(datetime.datetime(1970, 1, 1) + datetime.timedelta(days=d, minutes=ho))
-    #numpy.set_printoptions(threshold=200000)
 
     ld = 0
     # Sums for the current day
@@ -463,8 +431,6 @@ if __name__ == "__main__":
             I_s += dI_s
             d_ss += dI_ss; d_cs += dI_cs; d_c += dI_c
             d_n += 1
-        #else:
-            # cv2.circle(img, pt, 10, (100, 100, 100), -1)
     print(positions)
 
     valid = numpy.array(valid).transpose()
@@ -482,17 +448,12 @@ if __name__ == "__main__":
     plt.ylabel("hours of sunlight")
     plt.show()
 
-    # @@@@@@@@@@@@@@@@@@@@@@
-    # Best-groups analysis, assuming azimuth and zenith angles used
-    cs = numpy.concatenate([[[0, 0, 0]], numpy.cumsum(days_c, axis=0)])
+    # Load the coordinate system
     if args.coord is None:
-        R1 = numpy.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+        #R1 = numpy.array([[0, 1, 0], [0, 0, 1], [1, 0, 0]])
+        R1 = numpy.array([[0, 0, -1], [0, 1, 0], [1, 0, 0]])
         R2 = numpy.eye(3)
-        R2[1, 1] = -1
-        #R2 = numpy.array([
-        #    [0.7520744260039476, 0, 0.6590781878888368],
-        #    [0, -1, 0],
-        #    [-0.6590781878888368, 0, 0.7520744260039476]])
+        #R2[1, 1] = -1
 
     else:
         c = args.coord.split(";")
@@ -501,9 +462,12 @@ if __name__ == "__main__":
         R2 = numpy.array([float(x) for x in c[1].split(",")]).reshape((3, 3))
         if not numpy.allclose(R2 @ R2.T, numpy.eye(3)): print("R2 must be orthogonal")
 
+    # @@@@@@@@@@@@@@@@@@@@@@
+    # Best-groups analysis, assuming azimuth and zenith angles used
+    cs = numpy.concatenate([[[0, 0, 0]], numpy.cumsum(days_c, axis=0)])
     a0, b0 = args.zenith and float(args.zenith) * pi/180, args.azimuth and float(args.azimuth) * pi/180
     print(args.zenith, args.azimuth, a0, b0)
-    npos = 2
+    npos = args.groups
     pos = [int(365*(x+0.5)/npos) for x in range(npos)]
     # pos = [90, 256]
     change = True
@@ -544,11 +508,37 @@ if __name__ == "__main__":
         a_val.append(ze)
         b_val.append(az)
     print(a_val, b_val)
+    print("cl", cl)
     plt.scatter(b_val, a_val, c=(numpy.arange(npos)+1)%npos, marker="x")
     plt.xlabel("azimuth angle (radians)")
     plt.ylabel("zenith angle (radians)")
     plt.show()
+    
+    # Draw the dots representing the times when the sun would be visible
+    for a, z, d, i in positions[:, :4]:
+        pt = sphere2xy(a, z)
+        if 0 <= pt[1] < height and 0 <= pt[0] < width and mask[pt[1] + 1, pt[0] + 1]:
+            r = 10
+            cv2.circle(img, pt, r, (0, 0, 255), -1)
+    
+    # Draw the grid
+    pts = []
+    for i in range(0, 360, 10):
+        p = []
+        for j in range(0, 360, 10):
+            pt = R2 @ rot(j * pi / 180) @ R1 @ rot(i * pi / 180) @ [1, 0, 0]
+            pt = sphere2xy(*get_azel(pt)[:2])
+            p.append(pt)
+        pts.append(p)
+    for i in range(36):
+        for j in range(36):
+            if 0 <= pts[i][j][0] < width and 0 <= pts[i][j][1] < height:
+                if 0 <= pts[i - 1][j][0] < width and 0 <= pts[i - 1][j][1] < height:
+                    cv2.line(img, pts[i][j], pts[i - 1][j], (0, 128, 0), 5)
+                if 0 <= pts[i][j - 1][0] < width and 0 <= pts[i][j - 1][1] < height:
+                    cv2.line(img, pts[i][j], pts[i][j - 1], (0, 160, 0), 5)
 
+    # Calculations for a non-tracking panel, with some, none, or all of the angles specified
     if args.azimuth != "track" and args.zenith != "track":
         f_best_ze, f_best_az, f_energy = get_best_position(valid_c.T, R1, R2, a=a0, b=b0)
         f_energy = f_energy * 60 * dt
@@ -562,72 +552,35 @@ if __name__ == "__main__":
         print(svec)
         plt.plot(time_values, positions[:, 4:] @ svec)
         plt.show()
+        
+        pt = R2 @ rot(f_best_az) @ R1 @ rot(f_best_ze) @ [1, 0, 0]
+        print("point is", pt, get_azel(pt))
+        pt = sphere2xy(*get_azel(pt)[:2])
+        cv2.circle(img, pt, 50, (0, 255, 0), -1)
+        cv2.circle(img, (pt[0], -pt[1]), 50, (0, 255, 255), -1)
+        cv2.line(img, (pt[0], 0), (pt[0], height), (0, 255, 0), 5)
 
-    h_best_ze, h_energy = get_best_btrack(valid_c, R1, R2)
+    # Calculations for a panel that tracks along the b (azimuth) axis
+    h_best_ze, h_energy = get_best_btrack(valid_c, R1, R2, a=a0)
     h_energy = 60*dt*h_energy
     print("b-axis tracking panel:")
     print("    Best solar panel zenith angle:  {}".format(h_best_ze * 180 / pi))
     print("    Total energy (J):               {} J/m^2/year".format(h_energy))
     print("    Total energy (kWh):             {} kWh/m^2/year".format(h_energy / 3600000))
     print("    Average power:                  {} W/m^2".format(h_energy / (365 * 24 * 3600)))
-
-    """res = scipy.optimize.minimize(compute_power_atrack, numpy.ones(1)*numpy.pi)
-    print(res)
-    print(res["x"]*180/numpy.pi, res["fun"]*-60*dt)
-    plt.scatter(valid[0], valid[1])
-    plt.show()"""
+    
+    pts = [sphere2xy(*get_azel(R2 @ rot(i * pi / 180) @ R1 @ rot(h_best_ze) @ [1, 0, 0])[:2]) for i in
+           range(0, 360, 10)]
+    for i in range(36):
+        if (0 <= pts[i][0] < width and 0 <= pts[i][1] < height and 0 <= pts[i - 1][0] < width and
+                0 <= pts[i - 1][1] < height):
+            cv2.line(img, pts[i], pts[i - 1], (0, 255, 255), 5)
 
     print("Computed parameters:")
     print("    I_ss:                           {} J/m^2".format(I_ss))
     print("    I_cs:                           {} J/m^2".format(I_cs))
     print("    I_c:                            {} J/m^2".format(I_c))
     print("    I_s:                            {} J/m^2".format(I_s))
-
-    for a, z, d, i in positions[:, :4]:
-        pt = sphere2xy(a, z)
-        if 0 <= pt[1] < height and 0 <= pt[0] < width and mask[pt[1]+1, pt[0]+1]:
-            # Draw red dot for sampling points with sun
-            r = 10
-            if cl[int(d)-1]:
-                cv2.circle(img, pt, r, (255, 0, 255), -1)
-            else:
-                cv2.circle(img, pt, r, (0, 255, 255), -1)
-
-    # Draw the grid
-    pts = []
-    for i in range(0, 360, 10):
-        p = []
-        for j in range(0, 360, 10):
-            pt = R2 @ rot(j * pi/180) @ R1 @ rot(i * pi/180) @ [1, 0, 0]
-            pt = sphere2xy(*get_azel(pt)[:2])
-            p.append(pt)
-        pts.append(p)
-    for i in range(36):
-        for j in range(36):
-            if 0 <= pts[i][j][0] < width and 0 <= pts[i][j][1] < height:
-                if 0 <= pts[i-1][j][0] < width and 0 <= pts[i-1][j][1] < height:
-                    cv2.line(img, pts[i][j], pts[i-1][j], (0, 128, 0), 5)
-                if 0 <= pts[i][j-1][0] < width and 0 <= pts[i][j-1][1] < height:
-                    cv2.line(img, pts[i][j], pts[i][j-1], (0, 160, 0), 5)
-
-    pts = [sphere2xy(*get_azel(R2 @ rot(i * pi/180) @ R1 @ rot(h_best_ze) @ [1, 0, 0])[:2]) for i in range(0, 360, 10)]
-    for i in range(36):
-        if 0 <= pts[i][0] < width and 0 <= pts[i][1] < height and 0 <= pts[i-1][0] < width and 0 <= pts[i-1][1] < height:
-            cv2.line(img, pts[i], pts[i - 1], (0, 255, 255), 5)
-
-
-    print(f_best_az, f_best_ze)
-    pt = R2 @ rot(f_best_az) @ R1 @ rot(f_best_ze) @ [1, 0, 0]
-    print(pt, rot(f_best_az) @ R1 @ rot(f_best_ze) @ [1, 0, 0], get_azel(pt))
-    print(rot(f_best_az))
-    pt = sphere2xy(*get_azel(pt)[:2])
-    h_height = sphere2xy(0, h_best_ze)
-    cv2.circle(img, pt, 50, (0, 255, 0), -1)
-    cv2.circle(img, (pt[0], -pt[1]), 50, (0, 255, 255), -1)
-
-
-    cv2.line(img, (pt[0], 0), (pt[0], height), (0, 255, 0), 5)
-    #cv2.line(img, (0, h_height[1]), (img.shape[1], h_height[1]), (0, 255, 255), 5)
 
     cv2.destroyAllWindows()
     cv2.imwrite("/tmp/final.jpg", img)
