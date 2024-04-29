@@ -14,16 +14,49 @@
 	<body>
 		<!-- Content section-->
 		<section class="py-5">
-			<div class="container">
+			<div class="d-flex flex-col justify-content-center align-content-center container bg-primary text-white py-3 rounded-3">
 				<div class="row justify-content-center">
-					<div class="col-lg-6">
-						<h2>Upload Images Here</h2>
+					<!--<h2>Upload Images Here</h2>
 
 						<form method="POST" enctype="multipart/form-data" action="/results">
 							<input type="file" id="myFile" name="filename" />
 							<input type="submit" value="Run!" />
-						</form>
-					</div>
+						</form>-->
+					<form class="form-horizontal">
+						<fieldset>
+							<!-- Form Name -->
+							<legend>Upload Your Image</legend>
+
+							<!-- Upload Button -->
+							<div class="form-group">
+								<label class="col-md-4 control-label" for="image"></label>
+								<div class="col-md-4">
+									<input id="image" name="image" class="input-file" type="file" />
+								</div>
+							</div>
+
+							<!-- Lat/Long -->
+							<div class="form-group">
+								<label class="col-md-4 control-label" for="longitude">Longitude</label>
+								<div class="col-md-2">
+									<input id="longitude" name="longitude" type="text" placeholder="0.00" class="form-control input-md" />
+								</div>
+
+								<label class="col-md-4 control-label" for="latitude">Latitude</label>
+								<div class="col-md-2">
+									<input id="latitude" name="latitude" type="text" placeholder="0.00" class="form-control input-md" />
+								</div>
+							</div>
+
+							<!-- Submit -->
+							<div class="form-group">
+								<label class="col-md-4 control-label" for="submit"></label>
+								<div class="col-md-4">
+									<button id="submit" name="submit" class="btn btn-primary">Run!</button>
+								</div>
+							</div>
+						</fieldset>
+					</form>
 				</div>
 			</div>
 		</section>
