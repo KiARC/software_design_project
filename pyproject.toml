@@ -21,4 +21,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
-start = "python ./src/main.py"
+# In the future we should serve the prod version with a proper WSGI server like Waitress
+start = "flask --app ./src/main.py run"
+# This is fine for dev
+dev = "flask --app ./src/main.py --debug run"
