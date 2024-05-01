@@ -8,8 +8,6 @@
 		<title>Solar Energy Calculator</title>
 		<!-- Favicon-->
 		<link rel="icon" type="image/x-icon" href="../static/assets/favicon.ico" />
-		<!-- Core theme CSS (includes Bootstrap)-->
-		<link href="../static/css/index.css" rel="stylesheet" />
 		<style>
 			.marker {
 				width: 1vw;
@@ -22,13 +20,19 @@
 				text-align: right;
 				padding-right: 1ch;
 			}
+			.container {
+				background-color: #afdfff;
+				padding: 20px;
+				border-radius: 10px;
+				box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+			}
 		</style>
 	</head>
 	<body>
 		<!-- Content section-->
 		<section class="py-5">
-			<div class="d-flex flex-col justify-content-center align-content-center container bg-primary text-white py-3 rounded-3">
-				<div class="row justify-content-center w-100">
+			<div>
+				<div class="container">
 					{% if results is none %}
 					<form method="POST" enctype="multipart/form-data" class="form-horizontal">
 						<fieldset>
