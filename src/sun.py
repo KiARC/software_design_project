@@ -1,6 +1,5 @@
 import datetime
 import time
-import subprocess
 import sys
 
 import cv2
@@ -189,8 +188,8 @@ def print_power(p):
     print("    Average power:                  {} W/m^2".format(p / (365 * 24 * 3600)))
 
 
-def process_image(fname, user_param):
-    exif = extract_exif(fname)
+def process_image(fobj, user_param):
+    exif = extract_exif(fobj)
     param = {
         "fullHeight": int(exif["FullPanoHeightPixels"]),
         "fullWidth": int(exif["FullPanoWidthPixels"]),
@@ -220,7 +219,8 @@ def process_image(fname, user_param):
     valid = []
     
     # Read the image and convert to grayscale
-    img_color = cv2.imread(sys.argv[1])
+    fobj.seek(0)
+    img_color = cv2.imdecode(numpy.asarray(bytearray(fobj.read()), dtype=numpy.uint8), cv2.IMREAD_UNCHANGED)
     img = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
     height, width = img.shape[:2]
     param["img_height"], param["img_width"] = height, width
@@ -243,66 +243,64 @@ def process_image(fname, user_param):
             cv2.setMouseCallback("Panorama", clicked2, param)
             print("callback", time.time() - t0)
     
-    if os.path.exists("/tmp/mask{}.png".format(os.path.basename(fname))):
-        mask = cv2.imread("/tmp/mask{}.png".format(os.path.basename(fname)))[:, :, 0]
+
+    if "selected_points" in user_param:
+        pts = numpy.array(user_param["selected_points"]).astype(int)
     else:
-        if "selected_points" in user_param:
-            pts = numpy.array(user_param["selected_points"])
-        else:
-            cv2.namedWindow("Panorama", cv2.WINDOW_NORMAL)
-            cv2.imshow("Panorama", img)
-            cv2.setMouseCallback("Panorama", clicked2, [img, selected_points])
-            cv2.waitKey(0)
-            pts = numpy.array(selected_points)
-        xmin, xmax = numpy.min(pts[:, 0]), numpy.max(pts[:, 0])
-        ymin, ymax = numpy.min(pts[:, 1]), numpy.max(pts[:, 1])
-        colors = []
-        # Sample 1000 random points and check each one if it is inside the shape the user selected.
-        # If it is, store it for processing
-        for i in range(1000):
-            xi = numpy.random.randint(xmin, xmax)
-            yi = numpy.random.randint(ymin, ymax)
-            # Create a vertical line through (xi, yi)
-            # The number of edges this line intersects must be odd on both sides
-            inside = False
-            top = 0
-            bottom = 0
-            for j in range(len(pts)):
-                # collinear if (y1-y0)/(x1-x0) = (yi-y0)/(xi-x0)
-                dx = pts[j, 0] - pts[j-1, 0]
-                dy = pts[j, 1] - pts[j-1, 1]
-                if pts[j-1, 0] <= xi <= pts[j, 0] or pts[j, 0] <= xi <= pts[j-1, 0]:
-                    if dy*(xi-pts[j-1, 0]) == dx*(yi - pts[j-1, 1]):
-                        # point collinear with segment
-                        inside = True
-                        break
-                    # Vertical line cannot cross the segment, or we would have
-                    # caught it above
-                    if dx != 0:
-                        # collinear if (y1-y0)/(x1-x0)*(xi-x0) = (yi+t-y0)
-                        t = dy/dx * (xi - pts[j-1, 0]) + pts[j-1, 1] - yi
-                        if t >= 0:
-                            top += 1
-                        else:
-                            bottom += 1
-            if inside or (top%2 and bottom%2):
-                colors.append(img_color[yi, xi])
-        colors = numpy.array(colors, dtype=float)
-        print(colors.T @ colors)
-        r = numpy.linalg.lstsq(colors, numpy.ones(len(colors)))
-        rmse = numpy.sqrt(r[1][0]/len(colors)) * 100
-        print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
-        r = r[0]
-        diff = numpy.uint8(100*abs(img_color @ r - 1))
+        cv2.namedWindow("Panorama", cv2.WINDOW_NORMAL)
+        cv2.imshow("Panorama", img)
+        cv2.setMouseCallback("Panorama", clicked2, [img, selected_points])
+        cv2.waitKey(0)
+        pts = numpy.array(selected_points)
+    xmin, xmax = numpy.min(pts[:, 0]), numpy.max(pts[:, 0])
+    ymin, ymax = numpy.min(pts[:, 1]), numpy.max(pts[:, 1])
+    colors = []
+    # Sample 1000 random points and check each one if it is inside the shape the user selected.
+    # If it is, store it for processing
+    for i in range(1000):
+        xi = numpy.random.randint(xmin, xmax)
+        yi = numpy.random.randint(ymin, ymax)
+        # Create a vertical line through (xi, yi)
+        # The number of edges this line intersects must be odd on both sides
+        inside = False
+        top = 0
+        bottom = 0
+        for j in range(len(pts)):
+            # collinear if (y1-y0)/(x1-x0) = (yi-y0)/(xi-x0)
+            dx = pts[j, 0] - pts[j-1, 0]
+            dy = pts[j, 1] - pts[j-1, 1]
+            if pts[j-1, 0] <= xi <= pts[j, 0] or pts[j, 0] <= xi <= pts[j-1, 0]:
+                if dy*(xi-pts[j-1, 0]) == dx*(yi - pts[j-1, 1]):
+                    # point collinear with segment
+                    inside = True
+                    break
+                # Vertical line cannot cross the segment, or we would have
+                # caught it above
+                if dx != 0:
+                    # collinear if (y1-y0)/(x1-x0)*(xi-x0) = (yi+t-y0)
+                    t = dy/dx * (xi - pts[j-1, 0]) + pts[j-1, 1] - yi
+                    if t >= 0:
+                        top += 1
+                    else:
+                        bottom += 1
+        if inside or (top%2 and bottom%2):
+            colors.append(img_color[yi, xi])
+    colors = numpy.array(colors, dtype=float)
+    print(colors.T @ colors)
+    r = numpy.linalg.lstsq(colors, numpy.ones(len(colors)))
+    rmse = numpy.sqrt(r[1][0]/len(colors)) * 100
+    print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
+    r = r[0]
+    diff = numpy.uint8(100*abs(img_color @ r - 1))
+    if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
         cv2.imshow("diff", diff)
-        dil = cv2.dilate(diff, numpy.ones((100, 100)))
-        thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
-        cv2.floodFill(thr, None, pts[0], 128)
-        mask[1:-1, 1:-1] = numpy.where(thr == 128, 255, 0)
         cv2.waitKey(0)
-        cv2.imwrite("/tmp/mask{}.png".format(os.path.basename(fname)), mask)
+    dil = cv2.dilate(diff, numpy.ones((100, 100)))
+    thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
+    cv2.floodFill(thr, None, pts[0], 128)
+    mask[1:-1, 1:-1] = numpy.where(thr == 128, 255, 0)
     
     sun_pos = None
     
@@ -318,7 +316,7 @@ def process_image(fname, user_param):
     # If complete time information is included, allow the user to select the position of the
     # sun to calibrate the compass data included in the image.
     offs = 0
-    if "Date/Time Original" in exif and "Offset Time" in exif:
+    if "Date/Time Original" in exif and "Offset Time" in exif and user_param.get("interactive", True):
         d = datetime.datetime.strptime(exif["Date/Time Original"][:19], "%Y:%m:%d %H:%M:%S").timetuple()
         offs = exif["Offset Time"]
         offs = (int(offs[1:3]) + int(offs[4:6]) / 60) * (-1 if offs[0] == "-" else 1)
@@ -430,10 +428,11 @@ def process_image(fname, user_param):
     days = numpy.array(days).transpose()
     days_c = numpy.array(days_c)
     print("days_n", days_n)
-    plt.plot(days_n)
-    plt.xlabel("day of the year")
-    plt.ylabel("hours of sunlight")
-    plt.show()
+    if user_param.get("interactive", True):
+        plt.plot(days_n)
+        plt.xlabel("day of the year")
+        plt.ylabel("hours of sunlight")
+        plt.show()
     
     # Load the coordinate system
     if "coord" not in user_param:
@@ -481,7 +480,6 @@ def process_image(fname, user_param):
     
     dn = numpy.arange(364)
     cl = numpy.concatenate([[0]*pos[0], *[[i]*(pos[i]-pos[i-1]) for i in range(1, npos)], [0]*(364-pos[-1])])
-    plt.scatter(days[0], days[1], c=cl)
     a_val, b_val = [], []
     for a, b, c in totals:
         if a<0 or b<0: a, b = other_angle(R1, R2, a, b)
@@ -491,10 +489,12 @@ def process_image(fname, user_param):
         b_val.append(az)
     print(a_val, b_val)
     print("cl", cl)
-    plt.scatter(b_val, a_val, c=(numpy.arange(npos)+1)%npos, marker="x")
-    plt.xlabel("azimuth angle (radians)")
-    plt.ylabel("zenith angle (radians)")
-    plt.show()
+    if user_param.get("interactive", True):
+        plt.scatter(days[0], days[1], c=cl)
+        plt.scatter(b_val, a_val, c=(numpy.arange(npos)+1)%npos, marker="x")
+        plt.xlabel("azimuth angle (radians)")
+        plt.ylabel("zenith angle (radians)")
+        plt.show()
     
     # Draw the dots representing the times when the sun would be visible
     for a, z, d, i in positions[:, :4]:
@@ -521,7 +521,8 @@ def process_image(fname, user_param):
                     cv2.line(img, pts[i][j], pts[i][j - 1], (0, 160, 0), 5)
     
     # Calculations for a non-tracking panel, with some, none, or all of the angles specified
-    if user_param.get("track_azimuth", False) and user_param.get("track_zenith", False):
+    results = {}
+    if not user_param.get("track_azimuth", False) and not user_param.get("track_zenith", False):
         f_best_ze, f_best_az, f_energy = get_best_position(valid_c.T, R1, R2, a=a0, b=b0)
         f_energy = f_energy * 60 * dt
         print("Fixed panel:")
@@ -531,16 +532,22 @@ def process_image(fname, user_param):
         print("    Total energy (kWh):             {} kWh/m^2/year".format(f_energy / 3600000))
         print("    Average power:                  {} W/m^2".format(f_energy / (365 * 24 * 3600)))
         svec = (R2 @ rot(f_best_az) @ R1 @ rot(f_best_ze) @ [1, 0, 0])
-        print(svec)
-        plt.plot(time_values, positions[:, 4:] @ svec)
-        plt.show()
+        # print(svec)
+        if user_param.get("interactive", True):
+            plt.plot(time_values, positions[:, 4:] @ svec)
+            plt.show()
         
         pt = R2 @ rot(f_best_az) @ R1 @ rot(f_best_ze) @ [1, 0, 0]
-        print("point is", pt, get_azel(pt))
+        # print("point is", pt, get_azel(pt))
         pt = sphere2xy(param, *get_azel(pt)[:2])
         cv2.circle(img, pt, 50, (0, 255, 0), -1)
         cv2.circle(img, (pt[0], -pt[1]), 50, (0, 255, 255), -1)
         cv2.line(img, (pt[0], 0), (pt[0], height), (0, 255, 0), 5)
+        results["fixed"] = {
+            "a": f_best_ze,
+            "b": f_best_az,
+            "energy": f_energy
+        }
     
     # Calculations for a panel that tracks along the b (azimuth) axis
     h_best_ze, h_energy = get_best_btrack(valid_c, R1, R2, a=a0)
@@ -550,6 +557,10 @@ def process_image(fname, user_param):
     print("    Total energy (J):               {} J/m^2/year".format(h_energy))
     print("    Total energy (kWh):             {} kWh/m^2/year".format(h_energy / 3600000))
     print("    Average power:                  {} W/m^2".format(h_energy / (365 * 24 * 3600)))
+    results["btrack"] = {
+        "a": h_best_ze,
+        "energy": h_energy
+    }
     
     pts = [sphere2xy(param, *get_azel(R2 @ rot(i * pi / 180) @ R1 @ rot(h_best_ze) @ [1, 0, 0])[:2]) for i in
            range(0, 360, 10)]
@@ -563,12 +574,18 @@ def process_image(fname, user_param):
     print("    I_cs:                           {} J/m^2".format(I_cs))
     print("    I_c:                            {} J/m^2".format(I_c))
     print("    I_s:                            {} J/m^2".format(I_s))
+    results["parameters"] = {
+        "svec": (valid_c.sum(axis=1)*dt*60).tolist()
+    }
     
-    cv2.destroyAllWindows()
-    cv2.imwrite("/tmp/final.jpg", img)
-    cv2.namedWindow("Processing", cv2.WINDOW_NORMAL)
-    cv2.imshow("Processing", img)
-    cv2.waitKey(0)
+    if user_param.get("interactive", True):
+        cv2.destroyAllWindows()
+        cv2.imwrite("/tmp/final.jpg", img)
+        cv2.namedWindow("Processing", cv2.WINDOW_NORMAL)
+        cv2.imshow("Processing", img)
+        cv2.waitKey(0)
+    
+    return results
 
 
 if __name__ == "__main__":
@@ -590,7 +607,9 @@ if __name__ == "__main__":
     parse.add_argument("--dt", default=15, help="Time increment for checking sun position, in minutes")
     args = parse.parse_args()
     
-    user_param = {}
+    user_param = {
+        "interactive": True
+    }
     if args.latitude is not None: user_param["latitude"] = float(args.latitude)
     if args.longitude is not None: user_param["longitude"] = float(args.longitude)
     if args.azimuth is not None:
@@ -608,4 +627,5 @@ if __name__ == "__main__":
         user_param["coord"] = (R1, R2)
     if args.dt is not None: user_param["dt"] = float(args.dt)
     if args.groups is not None: user_param["groups"] = int(args.groups)
-    process_image(args.file, user_param)
+    with open(args.file, "rb") as f:
+        process_image(f, user_param)

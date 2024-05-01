@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload test</title>
+    <style>
+        .marker {
+            width: 1vw;
+            height: 1vw;
+            background-color: red;
+            position: absolute;
+        }
+    </style>
+</head>
+<body>
+
+<form method="POST" enctype="multipart/form-data">
+    <input type="file" id="myFile" name="filename">
+    <input name="points" style="display:none;" id="points">
+    <input type="submit">
+</form>
+
+<div id="preview-container" style="width: 100%; position: relative;">
+    <canvas width="100" height="100" id="preview"></canvas>
+</div>
+
+<textarea>
+{{ results }}
+</textarea>
+
+<script>
+    window.solar = {
+        points: []
+    };
+    var imgInp = document.getElementById("myFile");
+    var preview = document.getElementById("preview");
+    var ctx = preview.getContext("2d")
+    var container = document.getElementById("preview-container");
+    imgInp.addEventListener("change", function(evt) {
+        const [file] = imgInp.files;
+        if (file) {
+            var img = new Image();
+            img.src = URL.createObjectURL(file);
+            window.solar.img = img;
+            img.onload = function() {
+                console.log(img, img.width, img.height);
+                preview.width = container.clientWidth;
+                preview.height = container.clientWidth * img.height / img.width;
+                ctx.drawImage(img, 0, 0, preview.width, preview.height);
+            }
+        }
+    });
+    preview.addEventListener("mousedown", function(evt) {
+        console.log(evt.offsetX, evt.offsetY);
+        var x = evt.offsetX / preview.width * window.solar.img.width;
+        var y = evt.offsetY / preview.height * window.solar.img.height;
+        ctx.beginPath();
+        ctx.arc(evt.offsetX, evt.offsetY, 3, 0, 6.283185307179586);
+        ctx.fillStyle = "red";
+        ctx.strokeStyle = "red";
+        if (window.solar.last_point) {
+            ctx.moveTo(window.solar.last_point[0] / window.solar.img.width * preview.width, window.solar.last_point[1] / window.solar.img.height * preview.height);
+            ctx.lineTo(evt.offsetX, evt.offsetY);
+        }
+        window.solar.last_point = [x, y];
+        window.solar.points.push([x, y]);
+        document.getElementById("points").value = JSON.stringify(window.solar.points);
+
+        ctx.fill();
+        ctx.stroke();
+    });
+
+</script>
+
+</body>
+</html>
