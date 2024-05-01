@@ -10,22 +10,34 @@
 		<link rel="icon" type="image/x-icon" href="../static/assets/favicon.ico" />
 		<!-- Core theme CSS (includes Bootstrap)-->
 		<link href="../static/css/index.css" rel="stylesheet" />
+		<style>
+			.marker {
+				width: 1vw;
+				height: 1vw;
+				background-color: red;
+				position: absolute;
+			}
+		</style>
 	</head>
 	<body>
 		<!-- Content section-->
 		<section class="py-5">
 			<div class="d-flex flex-col justify-content-center align-content-center container bg-primary text-white py-3 rounded-3">
-				<div class="row justify-content-center">
-					<form method="POST" enctype="multipart/form-data" action="/results" class="form-horizontal">
+				<div class="row justify-content-center w-100">
+					{% if results is none %}
+					<form method="POST" enctype="multipart/form-data" class="form-horizontal">
 						<fieldset>
 							<!-- Form Name -->
 							<legend>Upload Your Image</legend>
-
+							<div id="preview-container" style="width: 100%; position: relative">
+								<canvas width="100" height="100" id="preview"></canvas>
+							</div>
 							<!-- Upload Button -->
 							<div class="form-group">
 								<label class="col-md-4 control-label" for="image"></label>
 								<div class="col-md-4">
 									<input id="image" name="image" class="input-file" type="file" />
+									<input name="points" style="display: none" id="points" />
 								</div>
 							</div>
 
@@ -51,6 +63,9 @@
 							</div>
 						</fieldset>
 					</form>
+					{% else %}
+					<textarea>{{results}}</textarea>
+					{% endif %}
 				</div>
 			</div>
 		</section>
@@ -58,5 +73,50 @@
 		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 		<!-- Core theme JS-->
 		<script src="../static/js/index.js"></script>
+		<script>
+			window.solar = {
+				points: [],
+			};
+			var imgInp = document.getElementById('image');
+			var preview = document.getElementById('preview');
+			var ctx = preview.getContext('2d');
+			var container = document.getElementById('preview-container');
+			imgInp.addEventListener('change', function (evt) {
+				const [file] = imgInp.files;
+				if (file) {
+					var img = new Image();
+					img.src = URL.createObjectURL(file);
+					window.solar.img = img;
+					img.onload = function () {
+						console.log(img, img.width, img.height);
+						preview.width = container.clientWidth;
+						preview.height = (container.clientWidth * img.height) / img.width;
+						ctx.drawImage(img, 0, 0, preview.width, preview.height);
+					};
+				}
+			});
+			preview.addEventListener('mousedown', function (evt) {
+				console.log(evt.offsetX, evt.offsetY);
+				var x = (evt.offsetX / preview.width) * window.solar.img.width;
+				var y = (evt.offsetY / preview.height) * window.solar.img.height;
+				ctx.beginPath();
+				ctx.arc(evt.offsetX, evt.offsetY, 3, 0, 6.283185307179586);
+				ctx.fillStyle = 'red';
+				ctx.strokeStyle = 'red';
+				if (window.solar.last_point) {
+					ctx.moveTo(
+						(window.solar.last_point[0] / window.solar.img.width) * preview.width,
+						(window.solar.last_point[1] / window.solar.img.height) * preview.height
+					);
+					ctx.lineTo(evt.offsetX, evt.offsetY);
+				}
+				window.solar.last_point = [x, y];
+				window.solar.points.push([x, y]);
+				document.getElementById('points').value = JSON.stringify(window.solar.points);
+
+				ctx.fill();
+				ctx.stroke();
+			});
+		</script>
 	</body>
 </html>

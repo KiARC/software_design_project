@@ -6,36 +6,27 @@ import sun
 app = Flask(__name__)
 
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def main():
-    return render_template('index.html')
-
-
-@app.route("/results", methods=["GET", "POST"])
-def result():
-    if request.method == "POST":
-        print(request.files)
-        if "filename" in request.files:
-            print(request.files["filename"].read()[:30])
-    return render_template('results.html')
-
-
-@app.route("/test", methods=["GET", "POST"])
-def upload_test():
-    if request.method == "POST":
-        print(request.files)
-        if "filename" in request.files:
-            print(request.files["filename"].read()[:30])
+    if request.method == "GET":
+        return render_template("index.html", results=None)
+    elif request.method == "POST":
+        if "image" in request.files:
             pts = json.loads(request.form["points"])
-            results = sun.process_image(request.files["filename"], {
-                "interactive": False,
-                "latitude": 39.277895,
-                "longitude": -77.216466,
-                "selected_points": pts
-            })
-            return render_template("upload_frontend.html", results=json.dumps(results, indent=4))
-    return render_template('upload_frontend.html')
-    
 
-if __name__ == '__main__':
+            params = {
+                "interactive": False,
+                "selected_points": pts,
+            }
+
+            if "latitude" in request.form:
+                params["latitude"] = float(request.form["latitude"])
+            if "longitude" in request.form:
+                params["longitude"] = float(request.form["longitude"])
+
+            results = sun.process_image(request.files["image"], params)
+            return render_template("index.html", results=json.dumps(results, indent=4))
+
+
+if __name__ == "__main__":
     app.run("0.0.0.0", 5000)
