@@ -40,12 +40,14 @@ def get_sun_pos(day, hour, min, sec, lat, long):
     decl = 0.006918 - 0.399912*cos(gamma) + 0.070257*sin(gamma) - 0.006758*cos(2*gamma) + 0.000907*sin(2*gamma) - 0.002697*cos(3*gamma) + 0.00148*sin(3*gamma)
     # decl = arcsin(0.39779 * cos(2*pi/365.24 * (fy+10) + 2*0.0167*sin(2*pi/365.24 * (fy-2))))
     ha = ((hour*60 + min + sec/60 + eqtime + 4*long) / 4 - 180) * pi/180
-    if ha < -pi: ha += 2*pi
+    #if ha < -pi: ha += 2*pi
+    ha = numpy.where(ha < -pi, ha + 2*pi, ha)
 
     lat = pi/180 * lat
     zenith = arccos(sin(lat)*sin(decl) + cos(lat)*cos(decl)*cos(ha))
     azimuth = pi - arccos((sin(lat)*cos(zenith) - sin(decl)) / (cos(lat)*sin(zenith)))
-    if ha > 0: azimuth = 2*pi - azimuth
+    #if ha > 0: azimuth = 2*pi - azimuth
+    azimuth = numpy.where(ha > 0, 2*pi - azimuth, azimuth)
     return azimuth, zenith
 
 
@@ -116,7 +118,7 @@ def get_best_position(points, R1, R2, a=None, b=None):
     #   s_3 = R1_31*cos(a) + R1_32*sin(a)
     #   s3/sqrt((R1_31)**2 + (R1_32)**2) = sin(arctan(R1_31/R1_32) + a)
     ps = numpy.sum(points, axis=0)
-    print("Sum of vectors is", ps)
+    #print("Sum of vectors is", ps)
     s = R2.T @ ps
     s = s / numpy.linalg.norm(s)
     # Vertical range of the given coordinate system.
@@ -139,7 +141,7 @@ def get_best_position(points, R1, R2, a=None, b=None):
             # (R1 @ [cos(a), sin(a), 0])[2] = s[2]
             # cos(a)*R1[2, 0] + sin(a)*R1[2, 1] = s[2]
             aopt = a or arcsin(s[2]/numpy.linalg.norm(R1[2,:2])) - arctan(R1[2,0]/R1[2,1])
-            print(cos(aopt)*R1[2, 0] + sin(aopt)*R1[2, 1], s[2])
+            #print(cos(aopt)*R1[2, 0] + sin(aopt)*R1[2, 1], s[2])
         else:
             # We need to find a value of a that maximizes the z-component R1 @ rot(a) @ [1, 0, 0]
             #   R1 @ [cos(a), sin(a), 0]
@@ -148,7 +150,7 @@ def get_best_position(points, R1, R2, a=None, b=None):
             aopt = arctan2(R1[2,1], R1[2,0])
             aopt += (-1 if aopt > 0 else 1)*(pi if s[2] < 0 else 0)
         pred = R1 @ rot(aopt) @ numpy.array([1, 0, 0])
-        print(pred, s)
+        #print(pred, s)
         bopt = arctan2(s[1], s[0]) - arctan2(pred[1], pred[0])
     return aopt, bopt, numpy.dot(rot(bopt) @ R1 @ rot(aopt) @ [1,0,0], s) * numpy.linalg.norm(ps)
 
@@ -252,6 +254,8 @@ def process_image(fobj, user_param):
         cv2.setMouseCallback("Panorama", clicked2, [img, selected_points])
         cv2.waitKey(0)
         pts = numpy.array(selected_points)
+    
+    start_imgprocess = time.time()
     xmin, xmax = numpy.min(pts[:, 0]), numpy.max(pts[:, 0])
     ymin, ymax = numpy.min(pts[:, 1]), numpy.max(pts[:, 1])
     colors = []
@@ -287,7 +291,7 @@ def process_image(fobj, user_param):
             colors.append(img_color[yi, xi])
     colors = numpy.array(colors, dtype=float)
     print(colors.T @ colors)
-    r = numpy.linalg.lstsq(colors, numpy.ones(len(colors)))
+    r = numpy.linalg.lstsq(colors, numpy.ones(len(colors)), rcond=None)
     rmse = numpy.sqrt(r[1][0]/len(colors)) * 100
     print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
     r = r[0]
@@ -301,6 +305,7 @@ def process_image(fobj, user_param):
     thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
     cv2.floodFill(thr, None, pts[0], 128)
     mask[1:-1, 1:-1] = numpy.where(thr == 128, 255, 0)
+    print("Image processing took", time.time() - start_imgprocess)
     
     sun_pos = None
     
@@ -364,7 +369,6 @@ def process_image(fobj, user_param):
     I_s = 0
     time_values = []
     for d in range(0, 365):
-        st = time.time()
         # img_c = img.copy()
         for i in range(0, p_len):
             ho = i * dt
@@ -375,7 +379,7 @@ def process_image(fobj, user_param):
             positions[i+d*p_len, 2] = d
             positions[i+d*p_len, 3] = i
             positions[i+d*p_len, 4:] = 0
-            time_values.append(datetime.datetime(1970, 1, 1) + datetime.timedelta(days=d, minutes=ho))
+            time_values.append(datetime.datetime(1970, 1, 1, 0, 0, 0) + datetime.timedelta(days=d, minutes=ho))
 
     ld = 0
     # Sums for the current day
@@ -386,10 +390,11 @@ def process_image(fobj, user_param):
     days_c = []
     # Stores the number sunlight hours each day
     days_n = []
+    start_collectsun = time.time()
     for idx, (a, z, d, i, ins1, ins2, ins3) in enumerate(positions):
         pt = sphere2xy(param, a, z)
         if d != ld:
-            print("day {} has {}, {}, {}".format(ld, d_cs, d_ss, d_c))
+            #print("day {} has {}, {}, {}".format(ld, d_cs, d_ss, d_c))
             ld = d
             days_c.append([d_cs, d_ss, d_c])
             days.append(get_azel((d_cs, d_ss, d_c)))
@@ -416,7 +421,7 @@ def process_image(fobj, user_param):
             d_cs += dI_cs
             d_c += dI_c
             d_n += 1
-    print(positions)
+    print("Collecting sun data took", time.time() - start_collectsun)
     
     valid = numpy.array(valid).transpose()
     valid_c = numpy.array([
@@ -427,7 +432,6 @@ def process_image(fobj, user_param):
     
     days = numpy.array(days).transpose()
     days_c = numpy.array(days_c)
-    print("days_n", days_n)
     if user_param.get("interactive", True):
         plt.plot(days_n)
         plt.xlabel("day of the year")
@@ -446,6 +450,7 @@ def process_image(fobj, user_param):
     
     # @@@@@@@@@@@@@@@@@@@@@@
     # Best-groups analysis, assuming azimuth and zenith angles used
+    start_bestgroups = time.time()
     cs = numpy.concatenate([[[0, 0, 0]], numpy.cumsum(days_c, axis=0)])
     a0 = user_param["zenith"] * pi/180 if "zenith" in user_param else None
     b0 = user_param["azimuth"] * pi/180 if "azimuth" in user_param else None
@@ -477,6 +482,7 @@ def process_image(fobj, user_param):
         ts = (jan1 + datetime.timedelta(i)).strftime("%Y/%m/%d")
         print("        Date and position:          {} -> a: {}, b: {}".format(ts, t[0]*180/pi, t[1]*180/pi))
     print_power(sum(t[2] for t in totals))
+    print("Best-groups analysis took", time.time() - start_bestgroups)
     
     dn = numpy.arange(364)
     cl = numpy.concatenate([[0]*pos[0], *[[i]*(pos[i]-pos[i-1]) for i in range(1, npos)], [0]*(364-pos[-1])])
@@ -578,9 +584,9 @@ def process_image(fobj, user_param):
         "svec": (valid_c.sum(axis=1)*dt*60).tolist()
     }
     
+    cv2.imwrite("/tmp/final.jpg", img)
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
-        cv2.imwrite("/tmp/final.jpg", img)
         cv2.namedWindow("Processing", cv2.WINDOW_NORMAL)
         cv2.imshow("Processing", img)
         cv2.waitKey(0)
