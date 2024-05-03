@@ -26,6 +26,7 @@
 				border-radius: 10px;
 				box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 			}
+
 		</style>
 	</head>
 	<body>
@@ -42,13 +43,17 @@
 								<canvas width="100" height="100" id="preview"></canvas>
 							</div>
 							<!-- Upload Button -->
-							<div class="form-group">
-								<label class="col-md-4 control-label" for="image"></label>
-								<div class="col-md-4">
-									<input id="image" name="image" class="input-file" type="file" />
-									<input name="points" style="display: none" id="points" />
-								</div>
+							<div id="tutorial" style="display:none;">
+								<img  src="../static/assets/tutorial.gif" alt="Tutorial" style="margin-right:auto;">
 							</div>
+								<div class="form-group">
+									<label class="col-md-4 control-label" for="image"></label>
+									<div class="col-md-4">
+										<input id="image" name="image" class="input-file" type="file" />
+										<input name="points" style="display: none" id="points" />
+									</div>
+								</div>
+							
 
 							<!-- Lat/Long -->
 							<div class="form-group">
@@ -153,6 +158,7 @@
 			};
 			var imgInp = document.getElementById('image');
 			var preview = document.getElementById('preview');
+			var tutorial = document.getElementById('tutorial');
 			var ctx = preview.getContext('2d');
 			var container = document.getElementById('preview-container');
 			imgInp.addEventListener('change', function (evt) {
@@ -166,6 +172,8 @@
 						preview.width = container.clientWidth;
 						preview.height = (container.clientWidth * img.height) / img.width;
 						ctx.drawImage(img, 0, 0, preview.width, preview.height);
+						tutorial.style.display = "block";
+						
 					};
 				}
 			});
