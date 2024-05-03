@@ -26,4 +26,4 @@ build-backend = "poetry.core.masonry.api"
 start = "flask --app ./src/main.py run"
 # This is fine for dev
 dev = "flask --app ./src/main.py --debug run"
-sv = "python -m snakeviz .\\profile\\"
+sv = "python -m snakeviz profile"
