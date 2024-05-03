@@ -2,8 +2,16 @@ from flask import Flask, render_template, request
 import os
 import json
 import sun
+from werkzeug.middleware.profiler import ProfilerMiddleware
 
 app = Flask(__name__)
+app.config["PROFILE"] = True
+app.wsgi_app = ProfilerMiddleware(
+    app.wsgi_app,
+    restrictions=[40, "sun"],
+    profile_dir="profile",
+    filename_format="{time:.0f}-{method}-{path}-{elapsed:.0f}ms.prof",
+)
 
 
 @app.route("/", methods=["GET", "POST"])
