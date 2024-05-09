@@ -26,12 +26,24 @@
 				border-radius: 10px;
 				box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 			}
+			.loading {
+				display: none;
+				position: fixed;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				z-index: 9999;
+			}
 
 		</style>
 	</head>
 	<body>
 		<!-- Content section-->
 		<section class="py-5">
+			<div class="loading" id="loading-container">
+				<img src="../static/assets/loading.gif" alt="Loading..." />
+			</div>
+			
 			<div>
 				<div class="container">
 					{% if results is none %}
@@ -199,6 +211,21 @@
 				ctx.fill();
 				ctx.stroke();
 			});
+
+			const loadingContainer = document.getElementById('loading-container');
+   			const runButton = document.getElementById('submit');
+
+			runButton.addEventListener('click', function() {
+				// Display the loading GIF
+				loadingContainer.style.display = 'block';
+		
+				setTimeout(function() {
+					// Hide the loading GIF after some delay
+					loadingContainer.style.display = 'none';
+					console.log("Data displayed!");
+				}, 60000); 
+			});
+
 		</script>
 	</body>
 </html>
