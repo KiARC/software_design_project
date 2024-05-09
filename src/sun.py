@@ -35,7 +35,7 @@ def get_sun_pos(day, hour, min, sec, lat, long):
     eot_c = (eot_a - arctan(tan(eot_b) / 0.91747714052))/pi
 
     # eqtime = 229.18 * (0.000075 + 0.001868*cos(gamma) - 0.032077*sin(gamma) - 0.014615*cos(2*gamma) - 0.040849*sin(2*gamma))
-    eqtime = 720*(eot_c - round(eot_c))
+    eqtime = 720*(eot_c - numpy.round(eot_c))
     fy = day + hour/24
     decl = 0.006918 - 0.399912*cos(gamma) + 0.070257*sin(gamma) - 0.006758*cos(2*gamma) + 0.000907*sin(2*gamma) - 0.002697*cos(3*gamma) + 0.00148*sin(3*gamma)
     # decl = arcsin(0.39779 * cos(2*pi/365.24 * (fy+10) + 2*0.0167*sin(2*pi/365.24 * (fy-2))))
@@ -191,6 +191,7 @@ def print_power(p):
 
 
 def process_image(fobj, user_param):
+    start_time = time.time()
     exif = extract_exif(fobj)
     param = {
         "fullHeight": int(exif["FullPanoHeightPixels"]),
@@ -229,6 +230,8 @@ def process_image(fobj, user_param):
 
     mask = numpy.zeros((height+2, width+2), dtype=numpy.uint8)
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    print("Loaded image and mask in", time.time() - start_time)
+    start_time = time.time()
     
     selected_points = []
     img_temp = img.copy()
@@ -255,7 +258,6 @@ def process_image(fobj, user_param):
         cv2.waitKey(0)
         pts = numpy.array(selected_points)
     
-    start_imgprocess = time.time()
     xmin, xmax = numpy.min(pts[:, 0]), numpy.max(pts[:, 0])
     ymin, ymax = numpy.min(pts[:, 1]), numpy.max(pts[:, 1])
     colors = []
@@ -289,13 +291,30 @@ def process_image(fobj, user_param):
                         bottom += 1
         if inside or (top%2 and bottom%2):
             colors.append(img_color[yi, xi])
+    print("Determined points in", time.time() - start_time)
+    start_time = time.time()
     colors = numpy.array(colors, dtype=float)
     print(colors.T @ colors)
     r = numpy.linalg.lstsq(colors, numpy.ones(len(colors)), rcond=None)
     rmse = numpy.sqrt(r[1][0]/len(colors)) * 100
     print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
     r = r[0]
-    diff = numpy.uint8(100*abs(img_color @ r - 1))
+    print("    regression in", time.time() - start_time)
+    #diff = numpy.uint8(100*numpy.abs(img_color @ r - 1))
+    sc = numpy.uint32(10000000)
+    #diff = numpy.uint8(100*numpy.abs(img_color[:, :, 0]*r[0] + img_color[:, :, 1]*r[1] + img_color[:, :, 2]*r[2] - 1))
+    r_int = numpy.int32(numpy.round(r*sc))
+    print("values are", r_int)
+    start_time = time.time()
+    m0 = img_color[:, :, 0]*r_int[0] + img_color[:, :, 1]*r_int[1] + img_color[:, :, 2]*r_int[2] - sc
+    #m0 = img_color @ r_int - sc
+    print("    single in", time.time() - start_time, type(sc//numpy.uint32(100)), m0.dtype)
+    
+    start_time = time.time()
+    diff = numpy.uint8(numpy.abs(m0//(sc//numpy.uint32(100))))
+    print("    diff in", time.time() - start_time)
+    cv2.imwrite("/tmp/diff.jpg", diff)
+    start_time = time.time()
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
@@ -305,7 +324,8 @@ def process_image(fobj, user_param):
     thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
     cv2.floodFill(thr, None, pts[0], 128)
     mask[1:-1, 1:-1] = numpy.where(thr == 128, 255, 0)
-    print("Image processing took", time.time() - start_imgprocess)
+    print("CV2 image processing took", time.time() - start_time)
+    start_time = time.time()
     
     sun_pos = None
     
@@ -362,24 +382,23 @@ def process_image(fobj, user_param):
     cv2.line(img, (0, param["fullHeight"] // 2 - param["ystart"]), (width, param["fullHeight"] // 2 - param["ystart"]),
              (0, 0, 255), 5)
     
+    print("Before get_sun_pos", time.time() - start_time)
     # Compute sun position for every time interval
     I_ss = 0
     I_cs = 0
     I_c = 0
     I_s = 0
     time_values = []
-    for d in range(0, 365):
-        # img_c = img.copy()
-        for i in range(0, p_len):
-            ho = i * dt
-            h = ho - 60*offs
-            a, z = get_sun_pos(d, h//60, h%60, 0, lat, long)
-            positions[i+d*p_len, 0] = a
-            positions[i+d*p_len, 1] = z
-            positions[i+d*p_len, 2] = d
-            positions[i+d*p_len, 3] = i
-            positions[i+d*p_len, 4:] = 0
-            time_values.append(datetime.datetime(1970, 1, 1, 0, 0, 0) + datetime.timedelta(days=d, minutes=ho))
+    i_val, d_val = numpy.meshgrid(numpy.arange(p_len), numpy.arange(365))
+    i_val, d_val = i_val.flatten(), d_val.flatten()
+    positions[:, 2] = d_val
+    positions[:, 3] = i_val
+    h = i_val*dt
+    a, z = get_sun_pos(d_val, h//60, h%60, 0, lat, long)
+    positions[:, 0] = a
+    positions[:, 1] = z
+    print("get_sun_pos loop took", time.time() - start_time)
+    start_time = time.time()
 
     ld = 0
     # Sums for the current day
@@ -390,7 +409,6 @@ def process_image(fobj, user_param):
     days_c = []
     # Stores the number sunlight hours each day
     days_n = []
-    start_collectsun = time.time()
     for idx, (a, z, d, i, ins1, ins2, ins3) in enumerate(positions):
         pt = sphere2xy(param, a, z)
         if d != ld:
@@ -421,7 +439,7 @@ def process_image(fobj, user_param):
             d_cs += dI_cs
             d_c += dI_c
             d_n += 1
-    print("Collecting sun data took", time.time() - start_collectsun)
+    print("Collecting sun data took", time.time() - start_time)
     
     valid = numpy.array(valid).transpose()
     valid_c = numpy.array([
@@ -450,7 +468,6 @@ def process_image(fobj, user_param):
     
     # @@@@@@@@@@@@@@@@@@@@@@
     # Best-groups analysis, assuming azimuth and zenith angles used
-    start_bestgroups = time.time()
     cs = numpy.concatenate([[[0, 0, 0]], numpy.cumsum(days_c, axis=0)])
     a0 = user_param["zenith"] * pi/180 if "zenith" in user_param else None
     b0 = user_param["azimuth"] * pi/180 if "azimuth" in user_param else None
@@ -482,7 +499,8 @@ def process_image(fobj, user_param):
         ts = (jan1 + datetime.timedelta(i)).strftime("%Y/%m/%d")
         print("        Date and position:          {} -> a: {}, b: {}".format(ts, t[0]*180/pi, t[1]*180/pi))
     print_power(sum(t[2] for t in totals))
-    print("Best-groups analysis took", time.time() - start_bestgroups)
+    print("Best-groups analysis took", time.time() - start_time)
+    start_time = time.time()
     
     dn = numpy.arange(364)
     cl = numpy.concatenate([[0]*pos[0], *[[i]*(pos[i]-pos[i-1]) for i in range(1, npos)], [0]*(364-pos[-1])])
@@ -581,7 +599,8 @@ def process_image(fobj, user_param):
     print("    I_c:                            {} J/m^2".format(I_c))
     print("    I_s:                            {} J/m^2".format(I_s))
     results["parameters"] = {
-        "svec": (valid_c.sum(axis=1)*dt*60).tolist()
+        "svec": (valid_c.sum(axis=1)*dt*60).tolist(),
+        "days_c": days_c.tolist()
     }
     
     cv2.imwrite("/tmp/final.jpg", img)
@@ -591,6 +610,7 @@ def process_image(fobj, user_param):
         cv2.imshow("Processing", img)
         cv2.waitKey(0)
     
+    print("Output processing took", time.time() - start_time)
     return results
 
 
