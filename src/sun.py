@@ -590,6 +590,7 @@ def process_image(fobj, user_param):
         "days_c": days_c.tolist(),
         "positions": positions.tolist()
     }
+    results["rmse"] = rmse
     
     cv2.imwrite("/tmp/final.jpg", img)
     if user_param.get("interactive", True):
