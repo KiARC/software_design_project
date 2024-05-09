@@ -175,6 +175,14 @@
 						document.getElementById("result-b-power-j").innerText = (results.btrack.energy).toFixed(4);
 						document.getElementById("result-b-power-kwh").innerText = (results.btrack.energy / 1000 / 3600).toFixed(4);
 						document.getElementById("result-b-power-w").innerText = (results.btrack.energy / 365 / 24 / 3600).toFixed(4);
+
+						//Create a vector with the solar output in Wats/m^2 by 15 minute interval
+						let interval_output = Array(results.parameters.positions.length)
+
+						for (let i = 0; i < results.parameters.positions.length; i++) {
+							interval_output[i] = Math.sqrt(results.parameters.positions[i][4] ** 2 + results.parameters.positions[i][5] ** 2 + results.parameters.positions[i][4] ** 2)
+						}
+						console.log(interval_output)
 					</script>
 					{% endif %}
 				</div>
