@@ -408,6 +408,7 @@ def process_image(fobj, user_param):
             # Draw red dot for sampling points with sun
             #cv2.circle(img, pt, 10, (0, 0, 255), -1)
             insolation = 1353 * 0.7**((cos(z))**-0.678)
+            if insolation != insolation: insolation = 0
             positions[idx, 4] = sin(a) * sin(z) * insolation
             positions[idx, 5] = cos(a) * sin(z) * insolation
             positions[idx, 6] = cos(z) * insolation
