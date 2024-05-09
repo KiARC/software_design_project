@@ -26,16 +26,15 @@
 				border-radius: 10px;
 				box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 			}
-
 		</style>
 	</head>
 	<body>
 		<!-- Content section-->
-		<section class="py-5">
+		<section>
 			<div>
 				<div class="container">
 					{% if results is none %}
-					<form method="POST" enctype="multipart/form-data" class="form-horizontal">
+					<form method="POST" enctype="multipart/form-data">
 						<fieldset>
 							<!-- Form Name -->
 							<legend>Upload Your Image</legend>
@@ -43,36 +42,53 @@
 								<canvas width="100" height="100" id="preview"></canvas>
 							</div>
 							<!-- Upload Button -->
-							<div id="tutorial" style="display:none;">
-								<img  src="../static/assets/tutorial.gif" alt="Tutorial" style="margin-right:auto;">
+							<div id="tutorial" style="display: none">
+								<img src="../static/assets/tutorial.gif" alt="Tutorial" style="margin-right: auto" />
 							</div>
-								<div class="form-group">
-									<label class="col-md-4 control-label" for="image"></label>
-									<div class="col-md-4">
-										<input id="image" name="image" class="input-file" type="file" />
-										<input name="points" style="display: none" id="points" />
-									</div>
-								</div>
-							
-
-							<!-- Lat/Long -->
-							<div class="form-group">
-								<label class="col-md-4 control-label" for="latitude">Latitude</label>
-								<div class="col-md-4">
-									<input id="latitude" name="latitude" type="text" placeholder="0.00" class="form-control input-md" />
-								</div>
-
-								<label class="col-md-4 control-label" for="longitude">Longitude</label>
-								<div class="col-md-4">
-									<input id="longitude" name="longitude" type="text" placeholder="0.00" class="form-control input-md" />
+							<div>
+								<label for="image"></label>
+								<div>
+									<input id="image" name="image" type="file" />
+									<input name="points" style="display: none" id="points" />
 								</div>
 							</div>
+
+							<!-- Angles! -->
+							<table>
+								<!-- Lat/Long -->
+								<tr>
+									<td>Latitude</td>
+									<td>
+										<input id="latitude" name="latitude" type="text" placeholder="0.00" />
+									</td>
+								</tr>
+								<tr>
+									<td>Longitude</td>
+									<td>
+										<input id="longitude" name="longitude" type="text" placeholder="0.00" />
+									</td>
+								</tr>
+
+								<!-- Locked Angle Config -->
+								<tr>
+									<td>Azmiuth Angle (optional)</td>
+									<td>
+										<input id="locked_b_angle" name="locked_b_angle" type="text" placeholder="Angle in degrees" />
+									</td>
+								</tr>
+								<tr>
+									<td>Zenith Angle (optional)</td>
+									<td>
+										<input id="locked_a_angle" name="locked_a_angle" type="text" placeholder="Angle in degrees" />
+									</td>
+								</tr>
+							</table>
 
 							<!-- Submit -->
-							<div class="form-group">
-								<label class="col-md-4 control-label" for="submit"></label>
-								<div class="col-md-4">
-									<button id="submit" name="submit" class="btn btn-secondary">Run!</button>
+							<div>
+								<label for="submit"></label>
+								<div>
+									<button id="submit" name="submit">Run!</button>
 								</div>
 							</div>
 						</fieldset>
@@ -172,8 +188,7 @@
 						preview.width = container.clientWidth;
 						preview.height = (container.clientWidth * img.height) / img.width;
 						ctx.drawImage(img, 0, 0, preview.width, preview.height);
-						tutorial.style.display = "block";
-						
+						tutorial.style.display = 'block';
 					};
 				}
 			});
