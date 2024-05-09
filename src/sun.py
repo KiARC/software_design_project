@@ -299,22 +299,8 @@ def process_image(fobj, user_param):
     rmse = numpy.sqrt(r[1][0]/len(colors)) * 100
     print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
     r = r[0]
-    print("    regression in", time.time() - start_time)
-    #diff = numpy.uint8(100*numpy.abs(img_color @ r - 1))
-    sc = numpy.uint32(10000000)
-    #diff = numpy.uint8(100*numpy.abs(img_color[:, :, 0]*r[0] + img_color[:, :, 1]*r[1] + img_color[:, :, 2]*r[2] - 1))
-    r_int = numpy.int32(numpy.round(r*sc))
-    print("values are", r_int)
-    start_time = time.time()
-    m0 = img_color[:, :, 0]*r_int[0] + img_color[:, :, 1]*r_int[1] + img_color[:, :, 2]*r_int[2] - sc
-    #m0 = img_color @ r_int - sc
-    print("    single in", time.time() - start_time, type(sc//numpy.uint32(100)), m0.dtype)
-    
-    start_time = time.time()
-    diff = numpy.uint8(numpy.abs(m0//(sc//numpy.uint32(100))))
-    print("    diff in", time.time() - start_time)
+    diff = numpy.uint8(100*numpy.abs(img_color @ r - 1))
     cv2.imwrite("/tmp/diff.jpg", diff)
-    start_time = time.time()
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
@@ -422,12 +408,12 @@ def process_image(fobj, user_param):
             # Draw red dot for sampling points with sun
             #cv2.circle(img, pt, 10, (0, 0, 255), -1)
             insolation = 1353 * 0.7**((cos(z))**-0.678)
-            positions[idx, 4] = -sin(a) * sin(z) * insolation
+            positions[idx, 4] = sin(a) * sin(z) * insolation
             positions[idx, 5] = cos(a) * sin(z) * insolation
             positions[idx, 6] = cos(z) * insolation
             valid.append([a, z, insolation])
             # dI_ss is negative because azimuth is clockwise
-            dI_ss = -(dt * 60) * sin(a) * sin(z) * insolation
+            dI_ss = (dt * 60) * sin(a) * sin(z) * insolation
             dI_cs = (dt * 60) * cos(a) * sin(z) * insolation
             dI_c = (dt * 60) * cos(z) * insolation
             dI_s = (dt * 60) * sin(z) * insolation
@@ -443,7 +429,7 @@ def process_image(fobj, user_param):
     
     valid = numpy.array(valid).transpose()
     valid_c = numpy.array([
-        -sin(valid[1]) * sin(valid[0]) * valid[2],
+        sin(valid[1]) * sin(valid[0]) * valid[2],
         sin(valid[1]) * cos(valid[0]) * valid[2],  # negative because azimuth angles are cw
         cos(valid[1]) * valid[2]
     ])
@@ -600,7 +586,8 @@ def process_image(fobj, user_param):
     print("    I_s:                            {} J/m^2".format(I_s))
     results["parameters"] = {
         "svec": (valid_c.sum(axis=1)*dt*60).tolist(),
-        "days_c": days_c.tolist()
+        "days_c": days_c.tolist(),
+        "positions": positions.tolist()
     }
     
     cv2.imwrite("/tmp/final.jpg", img)
