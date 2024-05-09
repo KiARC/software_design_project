@@ -1,3 +1,6 @@
+import base64
+
+import flask
 from flask import Flask, render_template, request
 import os
 import json
@@ -25,7 +28,16 @@ def main():
                 params["longitude"] = float(request.form["longitude"])
 
             results = sun.process_image(request.files["image"], params)
-            return render_template("index.html", results=json.dumps(results, indent=4))
+            return render_template("index.html", results=json.dumps(results), hash=results["hash"])
+
+
+@app.route("/results/<hash>")
+def results(hash):
+    url = "/tmp/final{}.jpg".format(hash.replace("/", ""))
+    with open(url, "rb") as f:
+        cont = f.read()
+    # os.remove(url)
+    return flask.Response(cont, mimetype="image/jpeg")
 
 
 if __name__ == "__main__":
