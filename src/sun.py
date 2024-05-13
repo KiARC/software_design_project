@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import PIL.Image
 import PIL.ExifTags
 import xml.etree.ElementTree as ET
+import hashlib
 
 
 def get_sun_pos(day, hour, min, sec, lat, long):
@@ -223,7 +224,9 @@ def process_image(fobj, user_param):
     
     # Read the image and convert to grayscale
     fobj.seek(0)
-    img_color = cv2.imdecode(numpy.asarray(bytearray(fobj.read()), dtype=numpy.uint8), cv2.IMREAD_UNCHANGED)
+    cont = fobj.read()
+    img_hash = hashlib.md5(cont).hexdigest()
+    img_color = cv2.imdecode(numpy.asarray(bytearray(cont), dtype=numpy.uint8), cv2.IMREAD_UNCHANGED)
     img = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
     height, width = img.shape[:2]
     param["img_height"], param["img_width"] = height, width
@@ -591,8 +594,9 @@ def process_image(fobj, user_param):
         "positions": positions.tolist()
     }
     results["rmse"] = rmse
+    results["hash"] = img_hash
     
-    cv2.imwrite("/tmp/final.jpg", img)
+    cv2.imwrite("/tmp/final{}.jpg".format(img_hash), img)
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("Processing", cv2.WINDOW_NORMAL)

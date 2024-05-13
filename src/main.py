@@ -1,9 +1,13 @@
-from flask import Flask, render_template, request
+import base64
+
+import flask
+from flask import Flask, render_template, request, session
 import os
 import json
 import sun
 
 app = Flask(__name__)
+app.secret_key = b"arefqervqwerfcqwef qwrefewrfqwefq wr w"
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -25,7 +29,41 @@ def main():
                 params["longitude"] = float(request.form["longitude"])
 
             results = sun.process_image(request.files["image"], params)
-            return render_template("index.html", results=json.dumps(results, indent=4))
+            print(session)
+            if "files" not in session:
+                session["files"] = results["hash"]
+            else:
+                session["files"] += ","+results["hash"]
+            with open("/tmp/data{}.json".format(results["hash"]), "w") as f: json.dump(results, f)
+            return render_template("index.html", results=json.dumps(results), hash=results["hash"])
+
+
+@app.route("/results/<hash>")
+def results(hash):
+    if "files" not in session or hash not in session["files"].split(","):
+        flask.abort(403)
+    url = "/tmp/final{}.jpg".format(hash.replace("/", ""))
+    try:
+        with open(url, "rb") as f:
+            cont = f.read()
+        # os.remove(url)
+        return flask.Response(cont, mimetype="image/jpeg")
+    except FileNotFoundError:
+        flask.abort(404)
+
+
+@app.route("/data/<hash>")
+def data(hash):
+    if "files" not in session or hash not in session["files"].split(","):
+        flask.abort(403)
+    url = "/tmp/data{}.json".format(hash.replace("/", ""))
+    try:
+        with open(url, "rb") as f:
+            cont = f.read()
+        # os.remove(url)
+        return flask.Response(cont, mimetype="application/json")
+    except FileNotFoundError:
+        flask.abort(404)
 
 
 if __name__ == "__main__":
