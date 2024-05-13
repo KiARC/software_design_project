@@ -57,6 +57,11 @@ def sphere2xy(param, a, z):
     return (x + param["xstart"]) % param["fullWidth"] - param["xstart"], int(z / pi * param["fullHeight"] - param["ystart"] + param["yoffs"])
 
 
+def sphere2xy_vect(param, a, z):
+    x = (param["fullWidth"] / 360 * (a * 180/pi - param["heading"]) + param["img_width"]//2 + param["xoffs"])
+    return numpy.uint32((x + param["xstart"]) % param["fullWidth"]) - param["xstart"], numpy.uint32(z / pi * param["fullHeight"] - param["ystart"] + param["yoffs"])
+
+
 def extract_exif(file):
     img = PIL.Image.open(file)
     exif = {
@@ -302,17 +307,18 @@ def process_image(fobj, user_param):
     rmse = numpy.sqrt(r[1][0]/len(colors)) * 100
     print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
     r = r[0]
-    diff = numpy.uint8(100*numpy.abs(img_color @ r - 1))
+    img_color_small = cv2.resize(img_color, (img_color.shape[1]//2, img_color.shape[0]//2), interpolation=cv2.INTER_NEAREST)
+    diff = numpy.uint8(100*numpy.abs(img_color_small @ r - 1))
     cv2.imwrite("/tmp/diff.jpg", diff)
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
         cv2.imshow("diff", diff)
         cv2.waitKey(0)
-    dil = cv2.dilate(diff, numpy.ones((100, 100)))
+    dil = cv2.dilate(diff, numpy.ones((50, 50)))
     thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
-    cv2.floodFill(thr, None, pts[0], 128)
-    mask[1:-1, 1:-1] = numpy.where(thr == 128, 255, 0)
+    cv2.floodFill(thr, None, (pts[0]//2).astype(pts.dtype), 128)
+    mask[1:-1, 1:-1] = cv2.resize(numpy.where(thr == 128, 1, 0), img_color.shape[1::-1], interpolation=cv2.INTER_NEAREST)
     print("CV2 image processing took", time.time() - start_time)
     start_time = time.time()
     
@@ -398,40 +404,22 @@ def process_image(fobj, user_param):
     days_c = []
     # Stores the number sunlight hours each day
     days_n = []
-    for idx, (a, z, d, i, ins1, ins2, ins3) in enumerate(positions):
-        pt = sphere2xy(param, a, z)
-        if d != ld:
-            #print("day {} has {}, {}, {}".format(ld, d_cs, d_ss, d_c))
-            ld = d
-            days_c.append([d_cs, d_ss, d_c])
-            days.append(get_azel((d_cs, d_ss, d_c)))
-            days_n.append(d_n*dt/60)
-            d_ss = d_cs = d_c = d_n = 0
-        if 0 <= pt[1] < height and 0 <= pt[0] < width and mask[pt[1]+1, pt[0]+1]:
-            # Draw red dot for sampling points with sun
-            #cv2.circle(img, pt, 10, (0, 0, 255), -1)
-            insolation = 1353 * 0.7**((cos(z))**-0.678)
-            if insolation != insolation: insolation = 0
-            positions[idx, 4] = sin(a) * sin(z) * insolation
-            positions[idx, 5] = cos(a) * sin(z) * insolation
-            positions[idx, 6] = cos(z) * insolation
-            valid.append([a, z, insolation])
-            # dI_ss is negative because azimuth is clockwise
-            dI_ss = (dt * 60) * sin(a) * sin(z) * insolation
-            dI_cs = (dt * 60) * cos(a) * sin(z) * insolation
-            dI_c = (dt * 60) * cos(z) * insolation
-            dI_s = (dt * 60) * sin(z) * insolation
-            I_ss += dI_ss
-            I_cs += dI_cs
-            I_c += dI_c
-            I_s += dI_s
-            d_ss += dI_ss
-            d_cs += dI_cs
-            d_c += dI_c
-            d_n += 1
+    pts_x, pts_y = sphere2xy_vect(param, positions[:, 0], positions[:, 1])
+    m = (0 <= pts_x)*(pts_x < width)*(0 <= pts_y)*(pts_y < height)
+    m[mask[pts_y*m+1, pts_x*m+1] == 0] = 0
+    print(numpy.sum(m))
+    insolation = 1353 * 0.7**((cos(positions[:, 1]))**-0.678) * m
+    insolation = numpy.where(numpy.isnan(insolation), 0, insolation)
+    positions[:, 4] = sin(positions[:, 0]) * sin(positions[:, 1]) * insolation
+    positions[:, 5] = cos(positions[:, 0]) * sin(positions[:, 1]) * insolation
+    positions[:, 6] = cos(positions[:, 1]) * insolation
+    I_ss, I_cs, I_c = 60 * dt * numpy.sum(positions[:, 4:], axis=0)
+    I_s = numpy.hypot(I_ss, I_cs)
+    days_n = numpy.sum(m.reshape((365, p_len)), axis=1)*dt/60
+    days_c = positions[:, 4:].reshape((365, p_len, -1)).sum(axis=1)
+    valid = numpy.array([positions[:, 0], positions[:, 1], insolation])[:, m]
     print("Collecting sun data took", time.time() - start_time)
     
-    valid = numpy.array(valid).transpose()
     valid_c = numpy.array([
         sin(valid[1]) * sin(valid[0]) * valid[2],
         sin(valid[1]) * cos(valid[0]) * valid[2],  # negative because azimuth angles are cw
