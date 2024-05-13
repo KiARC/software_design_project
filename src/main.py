@@ -1,13 +1,30 @@
 import base64
+import time
 
 import flask
 from flask import Flask, render_template, request, session
 import os
 import json
 import sun
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
 app.secret_key = b"arefqervqwerfcqwef qwrefewrfqwefq wr w"
+
+
+def gc():
+    total = 0
+    files = os.listdir("./cache")
+    for file in files:
+        if os.path.getmtime("./cache/" + file) < time.time() - 3600:
+            os.remove("./cache/" + file)
+            total += 1
+    print(f"Garbage collector removed {total} files")
+
+
+sched = BackgroundScheduler(daemon=True)
+sched.add_job(gc, "interval", hours=1)
+sched.start()
 
 
 @app.route("/", methods=["GET", "POST"])
