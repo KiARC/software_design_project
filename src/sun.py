@@ -405,10 +405,6 @@ def process_image(fobj, user_param):
     d_ss = d_cs = d_c = d_n = 0
     # Stores optimal (az, el) angles for each day. Used for best-groups analysis
     days = []
-    # Stores optimal vectors for each day. Used for best-groups analysis
-    days_c = []
-    # Stores the number sunlight hours each day
-    days_n = []
     pts_x, pts_y = sphere2xy_vect(param, positions[:, 0], positions[:, 1])
     m = (0 <= pts_x)*(pts_x < width)*(0 <= pts_y)*(pts_y < height)
     m[mask[pts_y*m+1, pts_x*m+1] == 0] = 0
@@ -584,7 +580,7 @@ def process_image(fobj, user_param):
     print("    I_s:                            {} J/m^2".format(I_s))
     results["parameters"] = {
         "svec": (valid_c.sum(axis=1)*dt*60).tolist(),
-        "days_c": days_c.tolist(),
+        "days_c": (60*dt*days_c).tolist(),
         "positions": positions.tolist()
     }
     results["rmse"] = rmse
