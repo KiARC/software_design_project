@@ -1,4 +1,5 @@
 import datetime
+import pathlib
 import time
 import sys
 
@@ -307,9 +308,12 @@ def process_image(fobj, user_param):
     rmse = numpy.sqrt(r[1][0]/len(colors)) * 100
     print("SSE: {}, RMSE: {}, condition number: {}".format(r[1], rmse, r[3][0] / r[3][-1]))
     r = r[0]
-    img_color_small = cv2.resize(img_color, (img_color.shape[1]//2, img_color.shape[0]//2), interpolation=cv2.INTER_NEAREST)
+    scale = 360*15 / param["fullWidth"]
+    small_width = int(360*15 * width / param["fullWidth"])
+    small_height = int(360*15 * height / param["fullWidth"])
+    img_color_small = cv2.resize(img_color, (small_width, small_height), interpolation=cv2.INTER_NEAREST)
     diff = numpy.uint8(100*numpy.abs(img_color_small @ r - 1))
-    cv2.imwrite("./cache/diff.jpg", diff)
+    cv2.imwrite(str(pathlib.Path(__file__).parent.parent.joinpath("cache/diff.jpg")), diff)
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
@@ -317,7 +321,7 @@ def process_image(fobj, user_param):
         cv2.waitKey(0)
     dil = cv2.dilate(diff, numpy.ones((50, 50)))
     thr = cv2.threshold(dil, numpy.uint8(rmse*10), 255, cv2.THRESH_BINARY_INV)[1]
-    cv2.floodFill(thr, None, (pts[0]//2).astype(pts.dtype), 128)
+    cv2.floodFill(thr, None, (pts[0]*scale).astype(pts.dtype), 128)
     mask[1:-1, 1:-1] = cv2.resize(numpy.where(thr == 128, 1, 0), img_color.shape[1::-1], interpolation=cv2.INTER_NEAREST)
     print("CV2 image processing took", time.time() - start_time)
     start_time = time.time()
@@ -584,7 +588,7 @@ def process_image(fobj, user_param):
     results["rmse"] = rmse
     results["hash"] = img_hash
     
-    cv2.imwrite("./cache/final{}.jpg".format(img_hash), img)
+    cv2.imwrite(str(pathlib.Path(__file__).parent.parent.joinpath("cache/final{}.jpg".format(img_hash))), img)
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("Processing", cv2.WINDOW_NORMAL)
