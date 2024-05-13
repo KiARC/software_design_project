@@ -15,10 +15,10 @@ app.secret_key = b"arefqervqwerfcqwef qwrefewrfqwefq wr w"
 
 def gc():
     total = 0
-    files = os.listdir("./cache")
+    files = os.listdir(config.cachedir)
     for file in files:
-        if os.path.getmtime("./cache/" + file) < time.time() - 3600:
-            os.remove("./cache/" + file)
+        if os.path.getmtime(f"{config.cachedir}/{file}") < time.time() - 3600:
+            os.remove(f"{config.cachedir}/{file}")
             total += 1
     print(f"Garbage collector removed {total} files")
 
