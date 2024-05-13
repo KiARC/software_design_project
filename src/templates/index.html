@@ -160,15 +160,17 @@
 								</tr>
 							</table>
 						</div>
+						<canvas id="solar-output-chart" width="400" height="400"></canvas>
 						<img src="/results/{{ hash }}" style="width:100%;"/>
 						<button onclick="window.location.href = '/';">Back</button>
 					</div>
+					<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 					<script>
 						req = new XMLHttpRequest();
 						req.open("GET", "/data/{{ hash }}");
 						req.addEventListener("load", function (event) {
 							results = JSON.parse(event.target.response);
-							console.log(results);
+							console.log("Results: ", results);
 							document.getElementById("result-f-azimuth").innerText = (results.fixed.b * 180 / Math.PI).toFixed(4);
 							document.getElementById("result-f-zenith").innerText = (results.fixed.a * 180 / Math.PI).toFixed(4);
 							document.getElementById("result-f-power-j").innerText = (results.fixed.energy).toFixed(4);
@@ -184,9 +186,28 @@
 							let interval_output = Array(results.parameters.positions.length)
 
 							for (let i = 0; i < results.parameters.positions.length; i++) {
-								interval_output[i] = Math.sqrt(results.parameters.positions[i][4] ** 2 + results.parameters.positions[i][5] ** 2 + results.parameters.positions[i][4] ** 2)
+								interval_output[i] = Math.sqrt(results.parameters.positions[i][4] ** 2 + results.parameters.positions[i][5] ** 2 + results.parameters.positions[i][6] ** 2)
 							}
-							console.log(interval_output)
+
+							//Create the json object for the chart
+							let chart_json = {
+								type: 'line',
+								data: {
+									labels: [...Array(interval_output.length).keys()],
+									datasets: [
+									 {
+										data: interval_output,
+										label: 'solar output (Watts/m^2)',
+										backgroundColor: 'rgba(255, 0, 0, 1)'
+									 }]
+								 }
+							}
+
+							console.log(chart_json)
+
+							const ctx = document.getElementById("solar-output-chart").getContext('2d')
+							const chart = new Chart(ctx, chart_json)
+
 						});
 						req.send();
 					</script>
