@@ -148,18 +148,24 @@
 						<button onclick="window.location.href = '/';">Back</button>
 					</div>
 					<script>
-						var results = {{ results|safe }};
-						console.log(results);
-						document.getElementById("result-f-azimuth").innerText = (results.fixed.b * 180 / Math.PI).toFixed(4);
-						document.getElementById("result-f-zenith").innerText = (results.fixed.a * 180 / Math.PI).toFixed(4);
-						document.getElementById("result-f-power-j").innerText = (results.fixed.energy).toFixed(4);
-						document.getElementById("result-f-power-kwh").innerText = (results.fixed.energy / 1000 / 3600).toFixed(4);
-						document.getElementById("result-f-power-w").innerText = (results.fixed.energy / 365 / 24 / 3600).toFixed(4);
+						req = new XMLHttpRequest();
+						req.open("GET", "/data/{{ hash }}");
+						req.addEventListener("load", function (event) {
+							results = JSON.parse(event.target.response);
 
-						document.getElementById("result-b-zenith").innerText = (results.btrack.a * 180 / Math.PI).toFixed(4);
-						document.getElementById("result-b-power-j").innerText = (results.btrack.energy).toFixed(4);
-						document.getElementById("result-b-power-kwh").innerText = (results.btrack.energy / 1000 / 3600).toFixed(4);
-						document.getElementById("result-b-power-w").innerText = (results.btrack.energy / 365 / 24 / 3600).toFixed(4);
+							console.log(results);
+							document.getElementById("result-f-azimuth").innerText = (results.fixed.b * 180 / Math.PI).toFixed(4);
+							document.getElementById("result-f-zenith").innerText = (results.fixed.a * 180 / Math.PI).toFixed(4);
+							document.getElementById("result-f-power-j").innerText = (results.fixed.energy).toFixed(4);
+							document.getElementById("result-f-power-kwh").innerText = (results.fixed.energy / 1000 / 3600).toFixed(4);
+							document.getElementById("result-f-power-w").innerText = (results.fixed.energy / 365 / 24 / 3600).toFixed(4);
+
+							document.getElementById("result-b-zenith").innerText = (results.btrack.a * 180 / Math.PI).toFixed(4);
+							document.getElementById("result-b-power-j").innerText = (results.btrack.energy).toFixed(4);
+							document.getElementById("result-b-power-kwh").innerText = (results.btrack.energy / 1000 / 3600).toFixed(4);
+							document.getElementById("result-b-power-w").innerText = (results.btrack.energy / 365 / 24 / 3600).toFixed(4);
+						});
+						req.send();
 					</script>
 					{% endif %}
 				</div>
