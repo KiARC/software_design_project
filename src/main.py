@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, session
 import os
 import json
 import sun
+import config
 from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
@@ -51,7 +52,10 @@ def main():
                 session["files"] = results["hash"]
             else:
                 session["files"] += "," + results["hash"]
-            with open("./cache/data{}.json".format(results["hash"]), "w") as f:
+            with open(
+                f"{config.cachedir}/data{results['hash']}.json",
+                "w",
+            ) as f:
                 json.dump(results, f)
             return render_template(
                 "index.html", results=json.dumps(results), hash=results["hash"]
@@ -62,7 +66,8 @@ def main():
 def results(hash):
     if "files" not in session or hash not in session["files"].split(","):
         flask.abort(403)
-    url = "./cache/final{}.jpg".format(hash.replace("/", ""))
+    hr = hash.replace("/", "")
+    url = f"{config.cachedir}/final{hr}.jpg"
     try:
         with open(url, "rb") as f:
             cont = f.read()
@@ -76,7 +81,8 @@ def results(hash):
 def data(hash):
     if "files" not in session or hash not in session["files"].split(","):
         flask.abort(403)
-    url = "./cache/data{}.json".format(hash.replace("/", ""))
+    hr = hash.replace("/", "")
+    url = f"{config.cachedir}/data{hr}.json"
     try:
         with open(url, "rb") as f:
             cont = f.read()
