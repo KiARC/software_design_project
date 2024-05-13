@@ -33,16 +33,19 @@ def main():
             if "files" not in session:
                 session["files"] = results["hash"]
             else:
-                session["files"] += ","+results["hash"]
-            with open("/tmp/data{}.json".format(results["hash"]), "w") as f: json.dump(results, f)
-            return render_template("index.html", results=json.dumps(results), hash=results["hash"])
+                session["files"] += "," + results["hash"]
+            with open("./cache/data{}.json".format(results["hash"]), "w") as f:
+                json.dump(results, f)
+            return render_template(
+                "index.html", results=json.dumps(results), hash=results["hash"]
+            )
 
 
 @app.route("/results/<hash>")
 def results(hash):
     if "files" not in session or hash not in session["files"].split(","):
         flask.abort(403)
-    url = "/tmp/final{}.jpg".format(hash.replace("/", ""))
+    url = "./cache/final{}.jpg".format(hash.replace("/", ""))
     try:
         with open(url, "rb") as f:
             cont = f.read()
@@ -56,7 +59,7 @@ def results(hash):
 def data(hash):
     if "files" not in session or hash not in session["files"].split(","):
         flask.abort(403)
-    url = "/tmp/data{}.json".format(hash.replace("/", ""))
+    url = "./cache/data{}.json".format(hash.replace("/", ""))
     try:
         with open(url, "rb") as f:
             cont = f.read()

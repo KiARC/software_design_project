@@ -309,7 +309,7 @@ def process_image(fobj, user_param):
     r = r[0]
     img_color_small = cv2.resize(img_color, (img_color.shape[1]//2, img_color.shape[0]//2), interpolation=cv2.INTER_NEAREST)
     diff = numpy.uint8(100*numpy.abs(img_color_small @ r - 1))
-    cv2.imwrite("/tmp/diff.jpg", diff)
+    cv2.imwrite("./cache/diff.jpg", diff)
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("diff", cv2.WINDOW_NORMAL)
@@ -584,7 +584,7 @@ def process_image(fobj, user_param):
     results["rmse"] = rmse
     results["hash"] = img_hash
     
-    cv2.imwrite("/tmp/final{}.jpg".format(img_hash), img)
+    cv2.imwrite("./cache/final{}.jpg".format(img_hash), img)
     if user_param.get("interactive", True):
         cv2.destroyAllWindows()
         cv2.namedWindow("Processing", cv2.WINDOW_NORMAL)
