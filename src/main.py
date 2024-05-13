@@ -46,20 +46,20 @@ def main():
             if "longitude" in request.form:
                 params["longitude"] = float(request.form["longitude"])
 
+            if "locked_a_angle" in request.form and request.form["locked_a_angle"]:
+                params["zenith"] = float(request.form["locked_a_angle"])
+            if "locked_b_angle" in request.form and request.form["locked_b_angle"]:
+                params["azimuth"] = float(request.form["locked_b_angle"])
+
             results = sun.process_image(request.files["image"], params)
             print(session)
             if "files" not in session:
                 session["files"] = results["hash"]
             else:
                 session["files"] += "," + results["hash"]
-            with open(
-                f"{config.cachedir}/data{results['hash']}.json",
-                "w",
-            ) as f:
+            with open(f"{config.cachedir}/data{results['hash']}.json", "w") as f:
                 json.dump(results, f)
-            return render_template(
-                "index.html", results=json.dumps(results), hash=results["hash"]
-            )
+            return render_template("index.html", results=json.dumps(results), hash=results["hash"])
 
 
 @app.route("/results/<hash>")
