@@ -15,6 +15,7 @@ numpy = "^1.26.4"
 matplotlib = "^3.8.4"
 pillow = "^10.3.0"
 apscheduler = "^3.10.4"
+waitress = "^3.0.0"
 
 
 [build-system]
@@ -22,7 +23,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poe.tasks]
-# In the future we should serve the prod version with a proper WSGI server like Waitress
-start = "flask --app ./src/main.py run"
-# This is fine for dev
 dev = "flask --app ./src/main.py --debug run"
+
+[tool.poe.tasks.start]
+cmd = "waitress-serve main:app"
+cwd = "./src"
