@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+		<meta name="description" content="" />
+		<meta name="author" content="" />
+		<title>Solar Energy Calculator</title>
+		<!-- Favicon-->
+		<link rel="icon" type="image/x-icon" href="../static/assets/favicon.ico" />
+		<style>
+			.container {
+				background-color: #afdfff;
+				padding: 20px;
+				border-radius: 10px;
+				box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+			}
+		</style>
+	</head>
+	<body>
+		<!-- Content section-->
+		<section>
+			<div class="container">
+				<h1>How to Use the Solar Energy Calculator</h1>
+				<ol>
+					<li>
+						Upload a 360&deg; panorama taken from the place where the solar panel will be located.
+						<img src="../static/assets/upload-tutorial.gif" width="256" style="display: block" />
+					</li>
+					<li>
+						Click on the image to create a bounding box around the sky. It can be rough, but make sure it doesn&apos;t contain
+						any trees or buildings. <img src="../static/assets/tutorial.gif" width="256" style="display: block" />
+					</li>
+					<li>
+						Enter the latitude and longitude where the photo was taken. This is only necessary if the image doesn't already have
+						them in its metadata. Most phones add this data automatically.
+					</li>
+					<li>
+						If your panel must be at a specific azimuth or zenith angle, enter those angles. If you leave those boxes empty, the
+						program will calculate the best possible angle for you.
+					</li>
+					<li>Click the run button! Your image will be processed and results will be returned to you.</li>
+				</ol>
+				<p>
+					All images uploaded are cached for roughly one hour after they are processed, after which they are deleted from the
+					server.
+				</p>
+			</div>
+		</section>
+	</body>
+</html>

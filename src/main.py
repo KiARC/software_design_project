@@ -59,7 +59,9 @@ def main():
                 session["files"] += "," + results["hash"]
             with open(f"{config.cachedir}/data{results['hash']}.json", "w") as f:
                 json.dump(results, f)
-            return render_template("index.html", results=json.dumps(results), hash=results["hash"])
+            return render_template(
+                "index.html", results=json.dumps(results), hash=results["hash"]
+            )
 
 
 @app.route("/results/<hash>")
@@ -90,6 +92,11 @@ def data(hash):
         return flask.Response(cont, mimetype="application/json")
     except FileNotFoundError:
         flask.abort(404)
+
+
+@app.route("/how-to")
+def howto():
+    return render_template("how-to.html")
 
 
 if __name__ == "__main__":
