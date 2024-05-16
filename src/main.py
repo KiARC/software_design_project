@@ -55,7 +55,7 @@ def main():
             print(session)
             if "files" not in session:
                 session["files"] = results["hash"]
-            else:
+            elif results["hash"] not in session["files"].split(","):
                 session["files"] += "," + results["hash"]
             with open(f"{config.cachedir}/data{results['hash']}.json", "w") as f:
                 json.dump(results, f)
