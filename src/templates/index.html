@@ -49,7 +49,7 @@
 					<form method="POST" enctype="multipart/form-data">
 						<fieldset>
 							<!-- Form Name -->
-							<legend>Upload Your Image</legend>
+							<legend>Upload Your Image! See <a href="/how-to">the how-to page</a> for a guide.</legend>
 							<div id="preview-container" style="width: 100%; position: relative">
 								<canvas width="100" height="100" id="preview"></canvas>
 							</div>
@@ -163,34 +163,38 @@
 							</table>
 						</div>
 						<canvas id="solar-output-chart" width="400" height="200"></canvas>
-						<img src="/results/{{ hash }}" style="width:100%;"/>
+						<img src="/results/{{ hash }}" style="width: 100%" />
 						<button onclick="window.location.href = '/';">Back</button>
 					</div>
 					<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 					<script>
 						req = new XMLHttpRequest();
-						req.open("GET", "/data/{{ hash }}");
-						req.addEventListener("load", function (event) {
+						req.open('GET', '/data/{{ hash }}');
+						req.addEventListener('load', function (event) {
 							results = JSON.parse(event.target.response);
-							console.log("Results: ", results);
-							document.getElementById("result-f-azimuth").innerText = (results.fixed.b * 180 / Math.PI).toFixed(4);
-							document.getElementById("result-f-zenith").innerText = (results.fixed.a * 180 / Math.PI).toFixed(4);
-							document.getElementById("result-f-power-j").innerText = (results.fixed.energy).toFixed(4);
-							document.getElementById("result-f-power-kwh").innerText = (results.fixed.energy / 1000 / 3600).toFixed(4);
-							document.getElementById("result-f-power-w").innerText = (results.fixed.energy / 365 / 24 / 3600).toFixed(4);
+							console.log('Results: ', results);
+							document.getElementById('result-f-azimuth').innerText = ((results.fixed.b * 180) / Math.PI).toFixed(4);
+							document.getElementById('result-f-zenith').innerText = ((results.fixed.a * 180) / Math.PI).toFixed(4);
+							document.getElementById('result-f-power-j').innerText = results.fixed.energy.toFixed(4);
+							document.getElementById('result-f-power-kwh').innerText = (results.fixed.energy / 1000 / 3600).toFixed(4);
+							document.getElementById('result-f-power-w').innerText = (results.fixed.energy / 365 / 24 / 3600).toFixed(4);
 
-							document.getElementById("result-b-zenith").innerText = (results.btrack.a * 180 / Math.PI).toFixed(4);
-							document.getElementById("result-b-power-j").innerText = (results.btrack.energy).toFixed(4);
-							document.getElementById("result-b-power-kwh").innerText = (results.btrack.energy / 1000 / 3600).toFixed(4);
-							document.getElementById("result-b-power-w").innerText = (results.btrack.energy / 365 / 24 / 3600).toFixed(4);
+							document.getElementById('result-b-zenith').innerText = ((results.btrack.a * 180) / Math.PI).toFixed(4);
+							document.getElementById('result-b-power-j').innerText = results.btrack.energy.toFixed(4);
+							document.getElementById('result-b-power-kwh').innerText = (results.btrack.energy / 1000 / 3600).toFixed(4);
+							document.getElementById('result-b-power-w').innerText = (results.btrack.energy / 365 / 24 / 3600).toFixed(4);
 
 							//Create a vector with the solar output in Wats/m^2 by day
-							let daily_output = Array(results.parameters.days_c.length)
+							let daily_output = Array(results.parameters.days_c.length);
 
 							for (let i = 0; i < results.parameters.days_c.length; i++) {
-								daily_output[i] = Math.sqrt(results.parameters.days_c[i][0] ** 2 + results.parameters.days_c[i][1] ** 2 + results.parameters.days_c[i][2] ** 2) / 3600
+								daily_output[i] =
+									Math.sqrt(
+										results.parameters.days_c[i][0] ** 2 +
+											results.parameters.days_c[i][1] ** 2 +
+											results.parameters.days_c[i][2] ** 2
+									) / 3600;
 							}
-
 
 							//Create the json object for the chart
 							let chart_json = {
@@ -198,19 +202,19 @@
 								data: {
 									labels: [...Array(daily_output.length).keys()],
 									datasets: [
-									 {
-										data: daily_output,
-										label: 'solar output (Wh/m^2)',
-										backgroundColor: 'rgba(255, 0, 0, 1)'
-									 }]
-								 }
-							}
+										{
+											data: daily_output,
+											label: 'solar output (Wh/m^2)',
+											backgroundColor: 'rgba(255, 0, 0, 1)',
+										},
+									],
+								},
+							};
 
-							console.log(chart_json)
+							console.log(chart_json);
 
-							const ctx = document.getElementById("solar-output-chart").getContext('2d')
-							const chart = new Chart(ctx, chart_json)
-
+							const ctx = document.getElementById('solar-output-chart').getContext('2d');
+							const chart = new Chart(ctx, chart_json);
 						});
 						req.send();
 					</script>
