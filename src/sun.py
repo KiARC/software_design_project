@@ -67,9 +67,9 @@ def sphere2xy_vect(param, a, z):
 def extract_exif(file):
     img = PIL.Image.open(file)
     exif_raw = img._getexif()
-    print("EXIF", exif_raw, exif_raw[34853], type(exif_raw[34853]), img._getexif())
     exif = {}
     for k, v in exif_raw.items():
+        # GPS data must be extracted separately and flattened
         if k == 34853:
             for gk, gv in v.items():
                 exif[PIL.ExifTags.GPSTAGS.get(gk, gk)] = gv
