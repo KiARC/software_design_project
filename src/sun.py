@@ -417,7 +417,7 @@ def process_image(fobj, user_param):
     I_ss, I_cs, I_c = 60 * dt * numpy.sum(positions[:, 4:], axis=0)
     I_s = numpy.hypot(I_ss, I_cs)
     days_n = numpy.sum(m.reshape((365, p_len)), axis=1)*dt/60
-    days_c = positions[:, 4:].reshape((365, p_len, -1)).sum(axis=1)
+    days_c = positions[:, 4:].reshape((365, p_len, -1)).sum(axis=1)*60*dt
     valid = numpy.array([positions[:, 0], positions[:, 1], insolation])[:, m]
     print("Collecting sun data took", time.time() - start_time)
     
@@ -473,10 +473,12 @@ def process_image(fobj, user_param):
                 change = True
     print("Best groups")
     print("    Steps:                          {}".format(pos))
+    results = {"groups": []}
     jan1 = datetime.datetime(datetime.datetime.now().year, 1, 1)
     for i, t in zip(pos, totals):
         ts = (jan1 + datetime.timedelta(i)).strftime("%Y/%m/%d")
         print("        Date and position:          {} -> a: {}, b: {}".format(ts, t[0]*180/pi, t[1]*180/pi))
+        results["groups"].append([i, t[0], t[1]])
     print_power(sum(t[2] for t in totals))
     print("Best-groups analysis took", time.time() - start_time)
     start_time = time.time()
@@ -524,7 +526,6 @@ def process_image(fobj, user_param):
                     cv2.line(img, pts[i][j], pts[i][j - 1], (0, 160, 0), 5)
     
     # Calculations for a non-tracking panel, with some, none, or all of the angles specified
-    results = {}
     if not user_param.get("track_azimuth", False) and not user_param.get("track_zenith", False):
         f_best_ze, f_best_az, f_energy = get_best_position(valid_c.T, R1, R2, a=a0, b=b0)
         f_energy = f_energy * 60 * dt
@@ -580,7 +581,7 @@ def process_image(fobj, user_param):
     print("    I_s:                            {} J/m^2".format(I_s))
     results["parameters"] = {
         "svec": (valid_c.sum(axis=1)*dt*60).tolist(),
-        "days_c": (60*dt*days_c).tolist(),
+        "days_c": days_c.tolist(),
         "positions": positions.tolist()
     }
     results["rmse"] = rmse
