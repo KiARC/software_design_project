@@ -162,7 +162,7 @@
 								</tr>
 							</table>
 						</div>
-						<canvas id="solar-output-chart" width="400" height="400"></canvas>
+						<canvas id="solar-output-chart" width="400" height="200"></canvas>
 						<img src="/results/{{ hash }}" style="width:100%;"/>
 						<button onclick="window.location.href = '/';">Back</button>
 					</div>
@@ -184,22 +184,23 @@
 							document.getElementById("result-b-power-kwh").innerText = (results.btrack.energy / 1000 / 3600).toFixed(4);
 							document.getElementById("result-b-power-w").innerText = (results.btrack.energy / 365 / 24 / 3600).toFixed(4);
 
-							//Create a vector with the solar output in Wats/m^2 by 15 minute interval
-							let interval_output = Array(results.parameters.positions.length)
+							//Create a vector with the solar output in Wats/m^2 by day
+							let daily_output = Array(results.parameters.days_c.length)
 
-							for (let i = 0; i < results.parameters.positions.length; i++) {
-								interval_output[i] = Math.sqrt(results.parameters.positions[i][4] ** 2 + results.parameters.positions[i][5] ** 2 + results.parameters.positions[i][6] ** 2)
+							for (let i = 0; i < results.parameters.days_c.length; i++) {
+								daily_output[i] = Math.sqrt(results.parameters.days_c[i][0] ** 2 + results.parameters.days_c[i][1] ** 2 + results.parameters.days_c[i][2] ** 2) / 3600
 							}
+
 
 							//Create the json object for the chart
 							let chart_json = {
 								type: 'line',
 								data: {
-									labels: [...Array(interval_output.length).keys()],
+									labels: [...Array(daily_output.length).keys()],
 									datasets: [
 									 {
-										data: interval_output,
-										label: 'solar output (Watts/m^2)',
+										data: daily_output,
+										label: 'solar output (Wh/m^2)',
 										backgroundColor: 'rgba(255, 0, 0, 1)'
 									 }]
 								 }
