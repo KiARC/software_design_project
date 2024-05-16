@@ -66,11 +66,15 @@ def sphere2xy_vect(param, a, z):
 
 def extract_exif(file):
     img = PIL.Image.open(file)
-    exif = {
-        PIL.ExifTags.TAGS[k]: v
-        for k, v in img.getexif().items()
-        if k in PIL.ExifTags.TAGS
-    }
+    exif_raw = img._getexif()
+    print("EXIF", exif_raw, exif_raw[34853], type(exif_raw[34853]), img._getexif())
+    exif = {}
+    for k, v in exif_raw.items():
+        if k == 34853:
+            for gk, gv in v.items():
+                exif[PIL.ExifTags.GPSTAGS.get(gk, gk)] = gv
+        else:
+            exif[PIL.ExifTags.TAGS.get(k, k)] = v
     for n, v in img.applist:
         if v.startswith(b"http://ns.adobe.com/xap/1.0/"):
             xmp = ET.fromstring(v.split(b"\x00", 1)[1].decode())[0][0].items()
@@ -215,6 +219,12 @@ def process_image(fobj, user_param):
         long = exif["GPS Longitude"]
         lat = float(lat[:-2]) * (-1 if lat[-1] == "S" else 1)
         long = float(long[:-2]) * (-1 if long[-1] == "W" else 1)
+        print("Extracted latitude and longitude", lat, long)
+    if "GPSLatitude" in exif and "GPSLongitude" in exif and "GPSLatitudeRef" in exif and "GPSLongitudeRef" in exif and not user_param.get("ignore_exif_coords", False):
+        lat = exif["GPSLatitude"]
+        long = exif["GPSLongitude"]
+        lat = (lat[0] + lat[1]/60.0 + lat[2]/3600.0) * (-1 if exif["GPSLatitudeRef"] == "S" else 1)
+        long = (long[0] + long[1]/60.0 + long[2]/3600.0) * (-1 if exif["GPSLongitudeRef"] == "W" else 1)
         print("Extracted latitude and longitude", lat, long)
     else:
         if "latitude" not in user_param or "longitude" not in user_param:

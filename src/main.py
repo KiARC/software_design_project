@@ -41,9 +41,9 @@ def main():
                 "selected_points": pts,
             }
 
-            if "latitude" in request.form:
+            if "latitude" in request.form and request.form["latitude"]:
                 params["latitude"] = float(request.form["latitude"])
-            if "longitude" in request.form:
+            if "longitude" in request.form and request.form["longitude"]:
                 params["longitude"] = float(request.form["longitude"])
 
             if "locked_a_angle" in request.form and request.form["locked_a_angle"]:
