@@ -81,7 +81,7 @@ def extract_exif(file):
             for xk, xv in xmp:
                 exif[xk.rsplit("}", 1)[1]] = xv
     for xk, xv in exif.items():
-        print(xk.ljust(50), xv)
+        print(str(xk).ljust(50), xv)
     return exif
 
 
