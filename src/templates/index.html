@@ -35,7 +35,7 @@
 				z-index: 9999;
 			}
 			#adjustment-table td {
-				padding: 8px 16px;
+				padding: 0px 16px;
 			}
 		</style>
 	</head>
@@ -113,6 +113,9 @@
 						<div>
 							<a class="btn btn-danger" role="button" href="/data/{{ hash }}" download="data.json">Download</a>
 
+                            <h2>Image analysis</h2>
+                            <p>RMSE value: <span id="result-rmse"></span></p>
+                            <p id="result-rmse-error" style="display: none; color: red;">Warning: an RMSE value greater than 10 may mean that the points were incorrectly selected. Check the output image below to verify that the sky was properly identified.</p>
 							<h2>Fixed panel</h2>
 							<table>
 								<tr>
@@ -191,6 +194,8 @@
 						req.addEventListener('load', function (event) {
 							results = JSON.parse(event.target.response);
 							console.log('Results: ', results);
+                            document.getElementById('result-rmse').innerText = results.rmse.toFixed(4);
+                            if (results.rmse >= 10) document.getElementById('result-rmse-error').style.display = "block";
 							document.getElementById('result-f-azimuth').innerText = ((results.fixed.b * 180) / Math.PI).toFixed(4);
 							document.getElementById('result-f-zenith').innerText = ((results.fixed.a * 180) / Math.PI).toFixed(4);
 							document.getElementById('result-f-power-j').innerText = results.fixed.energy.toFixed(4);
