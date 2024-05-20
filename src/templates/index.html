@@ -34,6 +34,9 @@
 				transform: translate(-50%, -50%);
 				z-index: 9999;
 			}
+			#adjustment-table td {
+				padding: 8px 16px;
+			}
 		</style>
 	</head>
 	<body>
@@ -163,6 +166,21 @@
 							</table>
 						</div>
 						<canvas id="solar-output-chart" width="400" height="200"></canvas>
+						<div>
+							<h2>Panel Adjustment</h2>
+							<table id="adjustment-table">
+								<thead>
+									<tr>
+										<th>Day</th>
+										<th>Azimuth</th>
+										<th>Zenith</th>
+									</tr>
+								</thead>
+								<tbody>
+									<!--rows here-->
+								</tbody>
+							</table>
+						</div>
 						<img src="/results/{{ hash }}" style="width: 100%" />
 						<button onclick="window.location.href = '/';">Back</button>
 					</div>
@@ -183,6 +201,26 @@
 							document.getElementById('result-b-power-j').innerText = results.btrack.energy.toFixed(4);
 							document.getElementById('result-b-power-kwh').innerText = (results.btrack.energy / 1000 / 3600).toFixed(4);
 							document.getElementById('result-b-power-w').innerText = (results.btrack.energy / 365 / 24 / 3600).toFixed(4);
+						
+							const tbody = document.querySelector('#adjustment-table tbody');
+							results.groups.forEach(adjustment => {
+								
+								const row = document.createElement('tr');
+								const dateCell = document.createElement('td');
+								const azimuthCell = document.createElement('td');
+								const zenithCell = document.createElement('td');
+
+								dateCell.textContent = adjustment[0];
+            					zenithCell.textContent = ((adjustment[1] * 180)/Math.PI).toFixed(4);
+            					azimuthCell.textContent = ((adjustment[2] * 180)/Math.PI).toFixed(4);
+
+								row.appendChild(dateCell);
+           						row.appendChild(zenithCell);
+          					  	row.appendChild(azimuthCell);
+
+            					tbody.appendChild(row);
+							});
+							
 
 							//Create a vector with the solar output in Wats/m^2 by day
 							let daily_output = Array(results.parameters.days_c.length);
