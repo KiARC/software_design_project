@@ -103,7 +103,7 @@
 							<div>
 								<label for="submit"></label>
 								<div>
-									<button id="submit" name="submit">Run!</button>
+									<button id="submit" name="submit" disabled>Run!</button>
 								</div>
 							</div>
 						</fieldset>
@@ -306,6 +306,7 @@
 				}
 				window.solar.last_point = [x, y];
 				window.solar.points.push([x, y]);
+                if (window.solar.points.length >= 3) document.getElementById("submit").disabled = "";
 				document.getElementById('points').value = JSON.stringify(window.solar.points);
 
 				ctx.fill();
